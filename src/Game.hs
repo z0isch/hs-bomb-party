@@ -64,6 +64,7 @@ data PlayerState = PlayerState
     , letters :: HashSet CaseInsensitiveChar
     , lives :: Int
     , tries :: Int
+    , lastUsedWord :: Maybe CaseInsensitiveText
     , wordsUsedStack :: [CaseInsensitiveText]
     , freeLetters :: HashSet CaseInsensitiveChar
     }
@@ -80,6 +81,7 @@ initialPlayerState playerId name =
         , letters = mempty
         , lives = 3
         , tries = 0
+        , lastUsedWord = Nothing
         , wordsUsedStack = []
         , freeLetters = mempty
         }
@@ -134,6 +136,7 @@ makeMove gs = (\x -> execRWS x () gs) . runMove
                 zoom currentPlayerL $ do
                     #tries .= 0
                     #wordsUsedStack %= (guess :)
+                    #lastUsedWord .= Just guess
                     #letters %= HashSet.union (caseInsensitiveLetters guess)
                     let hasUsedAllLetters = totalLettersL % to ((== 26) . HashSet.size)
                     whenM (use hasUsedAllLetters) $ do
@@ -150,9 +153,11 @@ makeMove gs = (\x -> execRWS x () gs) . runMove
                 currentPlayerL % #tries += 1
         TimeUp -> do
             tellCurrentPlayer GameStateEvent.TimeUp
-            currentPlayerL % #lives -= 1
-            currentPlayerL % #tries .= 0
+            zoom currentPlayerL $ do
+                #lives -= 1
+                #tries .= 0
             #players %= nextPlayer
+            currentPlayerL % #lastUsedWord .= Nothing
             use (to isGameOver) >>= \case
                 False -> do
                     #round += 1

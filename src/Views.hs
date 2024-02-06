@@ -211,7 +211,7 @@ playerStateUI api me stateKey gs ps = do
                                 ]
                                 $ do
                                     guessInput
-                                        (maybe "" getCaseInsensitiveText $ ps ^. #wordsUsedStack % to headMaybe)
+                                        (maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord)
                                         (me == ps ^. #id)
                                         (isPlayerTurn (gs ^. #players) ps)
                                         (ps ^. #tries > 0)
