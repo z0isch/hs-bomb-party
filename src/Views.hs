@@ -28,7 +28,6 @@ import Lucid.Htmx
 import Lucid.Htmx.Servant (hxPostSafe_)
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
-import RIO.List (headMaybe)
 import qualified RIO.Text as T
 import Servant
 import Servant.HTML.Lucid
@@ -212,9 +211,7 @@ playerStateUI api me stateKey gs ps = do
                                 $ do
                                     guessInput
                                         (maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord)
-                                        (me == ps ^. #id)
-                                        (isPlayerTurn (gs ^. #players) ps)
-                                        (ps ^. #tries > 0)
+                                        (ps ^. #id == me && isPlayerTurn (gs ^. #players) ps)
                                         (ps ^. #id)
                 else h1_ [class_ "text-center text-2xl"] "☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️"
   where
@@ -230,37 +227,36 @@ playerStateUI api me stateKey gs ps = do
 playerInputId :: PlayerId -> Text
 playerInputId playerId = "input-" <> UUID.toText (getPlayerId playerId)
 
-guessInput :: Text -> Bool -> Bool -> Bool -> PlayerId -> Html ()
-guessInput v isMe isMyTurn invaldGuess playerId = do
+guessInput :: Text -> Bool -> PlayerId -> Html ()
+guessInput v enabled playerId = do
     input_
         ( [ id_ $ playerInputId playerId
           , name_ "guess"
           , class_
                 $ "border-2 caret-blue-900"
-                <> ( if invaldGuess
-                        then " shake"
-                        else ""
-                   )
-                <> ( if isActivePlayersTurn
+                <> ( if enabled
                         then ""
                         else " bg-slate-300"
                    )
           , value_ v
           , autocomplete_ "off"
           ]
-            <> [disabled_ "" | not isActivePlayersTurn]
-            <> [autofocus_ | isActivePlayersTurn]
-            <> [makeAttribute "ws-send" "" | isActivePlayersTurn]
-            <> [hxTrigger_ "keyup changed delay:50ms" | isActivePlayersTurn]
+            <> [disabled_ "" | not enabled]
+            <> [autofocus_ | enabled]
+            <> [makeAttribute "ws-send" "" | enabled]
+            <> [hxTrigger_ "keyup changed delay:50ms" | enabled]
+            <> [makeAttribute "_" "on WrongGuess from elsewhere add .shake" | enabled]
         )
-  where
-    isActivePlayersTurn = isMe && isMyTurn
 
 letterUI :: PlayerState -> Html ()
 letterUI ps = for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')] $ \l -> do
-    let weight = if l `HashSet.member` (ps ^. totalLettersL) then " font-extrabold" else " font-extralight"
-        color = if l `HashSet.member` (ps ^. #freeLetters) then " text-rose-600" else ""
-    span_ [class_ $ "tracking-widest" <> weight <> color] $ toHtml l
+    let
+        isFree = l `HashSet.member` (ps ^. #freeLetters)
+        weight = if l `HashSet.member` (ps ^. totalLettersL) then " font-extrabold" else " font-extralight"
+        color = if isFree then " text-rose-600" else ""
+    span_
+        [class_ $ "tracking-widest" <> weight <> color]
+        $ toHtml l
 
 playerFirst :: PlayerId -> CircularZipper PlayerState -> [PlayerState]
 playerFirst pId cz = CZ.current playerCurrent : CZ.rights playerCurrent <> CZ.lefts playerCurrent

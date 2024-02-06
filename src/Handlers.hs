@@ -376,7 +376,7 @@ ws api me c = do
                                 c
                                 WsResponseMsg
                                     { events = Nothing
-                                    , html = guessInput guess False False False typer
+                                    , html = guessInput guess False typer
                                     , ..
                                     }
             sender

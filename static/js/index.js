@@ -31,7 +31,6 @@
               break;
             }
             case "AppGameStateChanged": {
-              console.log({ stateKey, currentStateKey });
               if (stateKey <= currentStateKey) {
                 evt.preventDefault();
                 return;
