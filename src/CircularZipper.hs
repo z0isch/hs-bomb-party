@@ -7,7 +7,6 @@ module CircularZipper (
     left,
     lefts,
     fromNonEmpty,
-    updateCurrent,
     findRight,
 ) where
 
@@ -54,6 +53,3 @@ findRight f z = go 0 z
         | otherwise =
             let z'' = right z'
              in if f $ current z'' then Just z'' else go (n + 1) z''
-
-updateCurrent :: (a -> a) -> CircularZipper a -> CircularZipper a
-updateCurrent f (CircularZipper z) = CircularZipper $ Z.replace (f $ Z.current z) z

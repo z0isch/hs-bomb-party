@@ -25,15 +25,20 @@ main = do
     stdGen <- newStdGen
 
     wsGameState <- do
-        let stateKey = 0
-            game =
-                InLobby
-                    $ initialSettings
-                        stdGen
-                        wordsSet
-                        givenLettersSet
-        chan <- newTChanIO
-        newTVarIO AppGameState{..}
+        let
+        chan <- newBroadcastTChanIO
+        newTVarIO
+            AppGameState
+                { stateKey = 0
+                , game =
+                    InLobby
+                        $ initialSettings
+                            stdGen
+                            wordsSet
+                            givenLettersSet
+                , events = mempty
+                , ..
+                }
 
     wsGameStateTimer <- newTVarIO Nothing
 

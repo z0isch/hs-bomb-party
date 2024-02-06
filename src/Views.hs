@@ -18,8 +18,9 @@ import Game (
     isGameOver,
     isPlayerAlive,
     isPlayerTurn,
+    totalLettersL,
  )
-import GameStateEvent (GameStateEvent)
+import GameStateEvent (GameStateEventsHeader)
 import Lucid hiding (for_)
 import qualified Lucid
 import Lucid.Base (makeAttribute)
@@ -27,6 +28,7 @@ import Lucid.Htmx
 import Lucid.Htmx.Servant (hxPostSafe_)
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
+import RIO.List (headMaybe)
 import qualified RIO.Text as T
 import Servant
 import Servant.HTML.Lucid
@@ -86,13 +88,13 @@ gameStateUI ::
     , IsElem
         ( Capture "stateKey" StateKey
             :> "start-over"
-            :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEvent] (Html ()))
+            :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
         )
         api
     , IsElem
         ( Capture "stateKey" StateKey
             :> "guess"
-            :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEvent] (Html ()))
+            :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
         )
         api
     ) =>
@@ -157,7 +159,7 @@ gameStateUI api me stateKey game = div_ [id_ "gameState", makeAttribute "data-st
                 [ type_ "button"
                 , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
                 , tabindex_ "-1"
-                , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "start-over" :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEvent] (Html ())))) stateKey
+                , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "start-over" :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ())))) stateKey
                 , hxTarget_ "#gameState"
                 ]
                 "Start A New Game"
@@ -178,7 +180,7 @@ playerStateUI ::
     ( IsElem
         ( Capture "stateKey" StateKey
             :> "guess"
-            :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEvent] (Html ()))
+            :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
         )
         api
     ) =>
@@ -204,12 +206,12 @@ playerStateUI api me stateKey gs ps = do
                             div_ [id_ $ "player-state-lives-" <> UUID.toText (getPlayerId me)] $ replicateM_ (ps ^. #lives) $ toHtml ("❤️" :: String)
                             form_
                                 [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
-                                , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "guess" :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEvent] (Html ())))) stateKey
+                                , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "guess" :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ())))) stateKey
                                 , hxTarget_ "#gameState"
                                 ]
                                 $ do
                                     guessInput
-                                        (maybe "" getCaseInsensitiveText $ ps ^. #lastWord)
+                                        (maybe "" getCaseInsensitiveText $ ps ^. #wordsUsedStack % to headMaybe)
                                         (me == ps ^. #id)
                                         (isPlayerTurn (gs ^. #players) ps)
                                         (ps ^. #tries > 0)
@@ -256,7 +258,7 @@ guessInput v isMe isMyTurn invaldGuess playerId = do
 
 letterUI :: PlayerState -> Html ()
 letterUI ps = for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')] $ \l -> do
-    let weight = if l `HashSet.member` (ps ^. #letters) then " font-extrabold" else " font-extralight"
+    let weight = if l `HashSet.member` (ps ^. totalLettersL) then " font-extrabold" else " font-extralight"
         color = if l `HashSet.member` (ps ^. #freeLetters) then " text-rose-600" else ""
     span_ [class_ $ "tracking-widest" <> weight <> color] $ toHtml l
 

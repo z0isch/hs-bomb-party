@@ -31,6 +31,7 @@
               break;
             }
             case "AppGameStateChanged": {
+              console.log({ stateKey, currentStateKey });
               if (stateKey <= currentStateKey) {
                 evt.preventDefault();
                 return;
@@ -41,9 +42,12 @@
               throw new Error(`Unrecognized chanMsg: ${chanMsg}`);
           }
           if (events) {
-            console.log(events);
             for (const event of events) {
-              if (event) htmx.trigger("body", event);
+              if (event) {
+                for (const [key, value] of Object.entries(event)) {
+                  htmx.trigger("body", key, value);
+                }
+              }
             }
           }
         } catch (e) {
@@ -90,9 +94,6 @@
     clearInterval(turnTickingIntervalID);
   });
   htmx.on("GameOver", () => {
-    clearInterval(turnTickingIntervalID);
-  });
-  htmx.on("SettingsUpdate", () => {
     clearInterval(turnTickingIntervalID);
   });
 })();

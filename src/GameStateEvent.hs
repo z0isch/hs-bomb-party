@@ -1,54 +1,56 @@
-{-# LANGUAGE OverloadedLabels #-}
+module GameStateEvent (GameStateEvents (..), GameStateEvent (..), GameStateEventsHeader (..), eventsForPlayer) where
 
-module GameStateEvent (GameStateEvent (..), getGameStateEvents) where
-
-import App (Game (..))
-import qualified CircularZipper as CZ
-import Control.Applicative (empty)
+import CaseInsensitive (CaseInsensitiveChar)
 import CustomPrelude
 import Data.Aeson (ToJSON (..))
-import Game (GameState (..), PlayerState (..), isGameOver)
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Text as Aeson
+import qualified Data.Aeson.Types as Aeson
+import Data.Coerce (coerce)
+import qualified RIO.HashMap as HashMap
+import qualified RIO.Text.Lazy as TL
 import Servant (ToHttpApiData (..))
 import WithPlayerApi (PlayerId)
 
+newtype GameStateEvents = GameStateEvents (HashMap PlayerId (Seq GameStateEvent))
+
+instance Monoid GameStateEvents where
+    mempty = coerce @(HashMap PlayerId (Seq GameStateEvent)) mempty
+
+instance Semigroup GameStateEvents where
+    (<>) =
+        coerce $ HashMap.unionWith @PlayerId @(Seq GameStateEvent) (<>)
+
+eventsForPlayer :: PlayerId -> GameStateEvents -> Maybe (Seq GameStateEvent)
+eventsForPlayer = coerce $ HashMap.lookup @PlayerId @(Seq GameStateEvent)
+
 data GameStateEvent
     = IWin
+    | ILose
     | MyTurn
     | TimeUp
     | GameOver
     | WrongGuess
     | CorrectGuess
-    | SettingsUpdate
-    | ILose
+    | FreeLetterAward CaseInsensitiveChar
     deriving stock (Show)
 
-instance ToHttpApiData GameStateEvent where
-    toUrlPiece = tshow
-
 instance ToJSON GameStateEvent where
-    toJSON = toJSON . toUrlPiece
-    toEncoding = toEncoding . toUrlPiece
+    toJSON = toJSON . Aeson.object . (: []) . toPair
+    toEncoding = toEncoding . Aeson.object . (: []) . toPair
 
-pureIf :: (Alternative m) => Bool -> a -> m a
-pureIf a b = if a then pure b else empty
+toPair :: GameStateEvent -> Aeson.Pair
+toPair = \case
+    IWin -> ("IWin", Aeson.Null)
+    ILose -> ("ILose", Aeson.Null)
+    MyTurn -> ("MyTurn", Aeson.Null)
+    TimeUp -> ("TimeUp", Aeson.Null)
+    GameOver -> ("GameOver", Aeson.Null)
+    WrongGuess -> ("WrongGuess", Aeson.Null)
+    CorrectGuess -> ("CorrectGuess", Aeson.Null)
+    FreeLetterAward c -> ("FreeLetterAward", Aeson.object [("char", toJSON c)])
 
-getGameStateEvents :: PlayerId -> Game -> Maybe [GameStateEvent]
-getGameStateEvents me = \case
-    InLobby _ -> Just [SettingsUpdate]
-    InGame gs -> do
-        let
-            isFirstRound = 0 == gs ^. #round
-            currentPlayer = gs ^. #players % to CZ.current
-            lastPlayer = gs ^. #players % to (CZ.current . CZ.left)
-            turnStarting = currentPlayer ^. #tries == 0
-            wasMyTurn = lastPlayer ^. #id == me
-            lastPlayerCorrect = isJust $ lastPlayer ^. #lastWord
-            isMyTurn = turnStarting && currentPlayer ^. #id == me
+newtype GameStateEventsHeader = GameStateEventsHeader {getGameStateEventsHeader :: Seq GameStateEvent}
 
-            gameOver = pureIf (isGameOver gs) [GameOver]
-            iWin = pureIf (isGameOver gs && isMyTurn) [IWin]
-            myTurn = pureIf isMyTurn [MyTurn]
-            timeUp = pureIf (turnStarting && wasMyTurn && not lastPlayerCorrect && not isFirstRound) [TimeUp]
-            iLose = pureIf (isGameOver gs && not isMyTurn) [ILose]
-
-        gameOver <> (iWin <|> iLose <|> myTurn <|> timeUp)
+instance ToHttpApiData GameStateEventsHeader where
+    toUrlPiece (GameStateEventsHeader events) = TL.toStrict $ Aeson.encodeToLazyText $ Aeson.object $ foldMap ((: []) . toPair) events

@@ -26,15 +26,20 @@ update =
         reloadChan <- createRef @Text r "reloadChan" newChan
 
         wsGameState <- createRef @Text r "wsGameState" $ do
-            let game =
-                    InLobby
-                        $ initialSettings
-                            (mkStdGen 0)
-                            (HashSet.fromList ["the", "quick", "brown", "fox", "friday"])
-                            ["fri", "day"]
-                stateKey = 0
-            chan <- newTChanIO
-            newTVarIO $ AppGameState{..}
+            let
+            chan <- newBroadcastTChanIO
+            newTVarIO
+                $ AppGameState
+                    { game =
+                        InLobby
+                            $ initialSettings
+                                (mkStdGen 0)
+                                (HashSet.fromList ["the", "quick", "brown", "fox", "friday"])
+                                ["fri", "day"]
+                    , stateKey = 0
+                    , events = mempty
+                    , ..
+                    }
 
         wsGameStateTimer <- createRef @Text r "wsGameStateTimer" $ newTVarIO Nothing
 

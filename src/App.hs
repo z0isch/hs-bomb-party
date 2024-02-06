@@ -10,6 +10,7 @@ import CustomPrelude
 import Data.Aeson (ToJSON)
 import Data.Aeson.Types (FromJSON)
 import Game (GameState, Settings)
+import GameStateEvent (GameStateEvents)
 import Optics.TH (makePrisms)
 import qualified RIO
 import Servant (FromHttpApiData, ToHttpApiData)
@@ -30,6 +31,7 @@ data AppGameStateChanMsg
 data AppGameState = AppGameState
     { stateKey :: StateKey
     , game :: Game
+    , events :: GameStateEvents
     , chan :: TChan AppGameStateChanMsg
     }
     deriving (Generic)

@@ -9,7 +9,7 @@ import CustomPrelude
 
 import App (App (..), AppM, StateKey)
 import Control.Monad.Except (ExceptT (..))
-import GameStateEvent (GameStateEvent)
+import GameStateEvent (GameStateEventsHeader)
 import qualified Handlers
 import Lucid hiding (for_)
 import OrphanInstances ()
@@ -38,10 +38,10 @@ type StateChangeAPI =
                     :> ReqBody '[FormUrlEncoded] Handlers.NamePost
                     :> Post '[HTML] (Html ())
                 :<|> "start" :> Post '[HTML] (Html ())
-                :<|> "start-over" :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEvent] (Html ()))
+                :<|> "start-over" :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
                 :<|> "guess"
                     :> ReqBody '[FormUrlEncoded] Handlers.GuessPost
-                    :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEvent] (Html ()))
+                    :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
            )
 
 api :: Proxy API

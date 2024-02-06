@@ -2,6 +2,7 @@ module CaseInsensitive (CaseInsensitiveText (..), CaseInsensitiveChar (..), case
 
 import CustomPrelude hiding (length)
 
+import Data.Aeson (ToJSON)
 import qualified Data.Char as C
 import Data.Coerce (coerce)
 import Data.Hashable (Hashable (..))
@@ -32,7 +33,7 @@ length = coerce T.length
 
 newtype CaseInsensitiveChar = CaseInsensitiveChar Char
     deriving stock (Show, Generic)
-    deriving newtype (Enum)
+    deriving newtype (Enum, ToJSON)
 
 instance Eq CaseInsensitiveChar where
     (==) = coerce ((==) `on` C.toUpper)
