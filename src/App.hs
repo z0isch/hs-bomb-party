@@ -25,7 +25,7 @@ newtype StateKey = StateKey {getStateKey :: Int}
     deriving newtype (Eq, Show, Num, Display, ToJSON, FromJSON, FromHttpApiData, ToHttpApiData)
 
 data AppGameStateChanMsg
-    = AppGameStateChanged
+    = AppGameStateChanged StateKey Game GameStateEvents
     | PlayerTyping StateKey PlayerId Text
 
 data AppGameState = AppGameState

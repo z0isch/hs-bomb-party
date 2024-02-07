@@ -9,7 +9,6 @@ import CustomPrelude
 
 import App (App (..), AppM, StateKey)
 import Control.Monad.Except (ExceptT (..))
-import GameStateEvent (GameStateEventsHeader)
 import qualified Handlers
 import Lucid hiding (for_)
 import OrphanInstances ()
@@ -27,28 +26,25 @@ type API =
 
 type StateChangeAPI =
     Capture "stateKey" StateKey
-        :> ( "join" :> Post '[HTML] (Html ())
+        :> ( "join" :> Post '[HTML] NoContent
                 :<|> "leave"
                     :> ReqBody '[FormUrlEncoded] Handlers.LeavePost
-                    :> Post '[HTML] (Html ())
+                    :> Post '[HTML] NoContent
                 :<|> "settings"
                     :> ReqBody '[FormUrlEncoded] Handlers.SettingsPost
-                    :> Post '[HTML] (Html ())
+                    :> Post '[HTML] NoContent
                 :<|> "name"
                     :> ReqBody '[FormUrlEncoded] Handlers.NamePost
-                    :> Post '[HTML] (Html ())
-                :<|> "start" :> Post '[HTML] (Html ())
-                :<|> "start-over" :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
+                    :> Post '[HTML] NoContent
+                :<|> "start" :> Post '[HTML] NoContent
+                :<|> "start-over" :> Post '[HTML] NoContent
                 :<|> "guess"
                     :> ReqBody '[FormUrlEncoded] Handlers.GuessPost
-                    :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
+                    :> Post '[HTML] NoContent
            )
 
 api :: Proxy API
 api = Proxy
-
-stateChangeApi :: Proxy StateChangeAPI
-stateChangeApi = Proxy
 
 totalApi :: Proxy ("static" :> Raw :<|> WithPlayerApi.API API)
 totalApi = Proxy
@@ -77,13 +73,13 @@ server mHotReload playerId =
 
 stateChangeServer :: PlayerId -> ServerT StateChangeAPI AppM
 stateChangeServer playerId stateId =
-    Handlers.joinHandler stateChangeApi playerId stateId
-        :<|> Handlers.leave stateChangeApi playerId stateId
-        :<|> Handlers.settingsHandler stateChangeApi playerId stateId
-        :<|> Handlers.name stateChangeApi playerId stateId
-        :<|> Handlers.start stateChangeApi playerId stateId
-        :<|> Handlers.startOver stateChangeApi playerId stateId
-        :<|> Handlers.guessHandler stateChangeApi playerId stateId
+    Handlers.joinHandler playerId stateId
+        :<|> Handlers.leave stateId
+        :<|> Handlers.settingsHandler stateId
+        :<|> Handlers.name stateId
+        :<|> Handlers.start stateId
+        :<|> Handlers.startOver stateId
+        :<|> Handlers.guessHandler stateId
 
 app :: App -> Maybe (Html ()) -> Application
 app a = serve totalApi . totalApiServer a

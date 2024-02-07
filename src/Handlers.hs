@@ -34,66 +34,20 @@ import Game (
     makeMove,
     startGame,
  )
-import GameStateEvent (GameStateEvent (..), GameStateEvents (..), GameStateEventsHeader (..), eventsForPlayer)
+import GameStateEvent (GameStateEvent (..), GameStateEvents (..), eventsForPlayer)
 import Lucid hiding (for_)
 import Lucid.Base (makeAttribute)
 import Lucid.Htmx
 import qualified Network.WebSockets as WS
 import OrphanInstances ()
-import qualified RIO.ByteString.Lazy as BSL
 import qualified RIO.HashMap as HashMap
+import qualified RIO.Text.Lazy as TL
 import Servant
 import Servant.API.WebSocket (WebSocket)
-import Servant.HTML.Lucid
 import Timer (restartTimer, startTimer, stopTimer)
-import Views (gameStateUI, guessInput, sharedHead)
+import Views (APIConstraints, gameStateUI, guessInput, sharedHead)
 import Web.FormUrlEncoded (FromForm (..))
 import WithPlayerApi (PlayerId (..))
-
-type APIConstraints api =
-    ( IsElem
-        ( Capture "stateKey" StateKey
-            :> "leave"
-            :> Post '[HTML] (Html ())
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "join"
-            :> Post '[HTML] (Html ())
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "start"
-            :> Post '[HTML] (Html ())
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "settings"
-            :> Post '[HTML] (Html ())
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "name"
-            :> Post '[HTML] (Html ())
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "start-over"
-            :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "guess"
-            :> Post '[HTML] (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
-        )
-        api
-    )
 
 home ::
     ( APIConstraints api
@@ -115,7 +69,7 @@ home api mHotreload me = do
                 , makeAttribute "ws-connect" $ "/" <> toUrlPiece (safeLink api (Proxy @("ws" :> WebSocket)))
                 , class_ "container mx-auto px-4 py-4"
                 ]
-            $ gameStateUI api me (appGameState ^. #stateKey) (appGameState ^. #game)
+            $ gameStateUI api me (appGameState ^. #stateKey) (appGameState ^. #game) Nothing
 
 updateGameState :: StateKey -> (Game -> (Game, GameStateEvents)) -> AppM (StateKey, (Game, GameStateEvents))
 updateGameState stateKey f = do
@@ -128,22 +82,21 @@ updateGameState stateKey f = do
                     (gs', events) = f $ appGameState ^. #game
                     stateKey' = stateKey + 1
                 writeTVar (a ^. #wsGameState) appGameState{stateKey = stateKey', game = gs', events}
-                (stateKey', (gs', events)) <$ writeTChan (appGameState ^. #chan) AppGameStateChanged
+                (stateKey', (gs', events)) <$ writeTChan (appGameState ^. #chan) (AppGameStateChanged stateKey' gs' events)
             else pure (appGameState ^. #stateKey, (appGameState ^. #game, appGameState ^. #events))
 
 joinHandler ::
-    ( APIConstraints api
-    ) =>
-    Proxy api ->
     PlayerId ->
     StateKey ->
-    AppM (Html ())
-joinHandler api me stateKey = do
-    (stateKey', (gs, _)) <- updateGameState stateKey
-        $ \case
-            InLobby settings -> (InLobby $ settings & #players %~ HashMap.insert me Nothing, mempty)
-            x -> (x, mempty)
-    pure $ gameStateUI api me stateKey' gs
+    AppM NoContent
+joinHandler me stateKey =
+    NoContent
+        <$ updateGameState
+            stateKey
+            ( \case
+                InLobby settings -> (InLobby $ settings & #players %~ HashMap.insert me Nothing, mempty)
+                x -> (x, mempty)
+            )
 
 newtype LeavePost = LeavePost
     {playerId :: PlayerId}
@@ -152,19 +105,17 @@ newtype LeavePost = LeavePost
 instance FromForm LeavePost
 
 leave ::
-    ( APIConstraints api
-    ) =>
-    Proxy api ->
-    PlayerId ->
     StateKey ->
     LeavePost ->
-    AppM (Html ())
-leave api me stateKey p = do
-    (stateKey', (gs, _)) <- updateGameState stateKey
-        $ \case
-            InLobby settings -> (InLobby $ settings & #players %~ HashMap.delete (p ^. #playerId), mempty)
-            x -> (x, mempty)
-    pure $ gameStateUI api me stateKey' gs
+    AppM NoContent
+leave stateKey p =
+    NoContent
+        <$ updateGameState
+            stateKey
+            ( \case
+                InLobby settings -> (InLobby $ settings & #players %~ HashMap.delete (p ^. #playerId), mempty)
+                x -> (x, mempty)
+            )
 
 newtype SettingsPost = SettingsPost
     {secondsToGuess :: Int}
@@ -173,19 +124,17 @@ newtype SettingsPost = SettingsPost
 instance FromForm SettingsPost
 
 settingsHandler ::
-    ( APIConstraints api
-    ) =>
-    Proxy api ->
-    PlayerId ->
     StateKey ->
     SettingsPost ->
-    AppM (Html ())
-settingsHandler api me stateKey p = do
-    (stateKey', (gs, _)) <- updateGameState stateKey
-        $ \case
-            InLobby settings -> (InLobby $ settings & #secondsToGuess .~ p ^. #secondsToGuess, mempty)
-            x -> (x, mempty)
-    pure $ gameStateUI api me stateKey' gs
+    AppM NoContent
+settingsHandler stateKey p =
+    NoContent
+        <$ updateGameState
+            stateKey
+            ( \case
+                InLobby settings -> (InLobby $ settings & #secondsToGuess .~ p ^. #secondsToGuess, mempty)
+                x -> (x, mempty)
+            )
 
 data NamePost = NamePost
     {playerId :: PlayerId, name :: Text}
@@ -194,51 +143,38 @@ data NamePost = NamePost
 instance FromForm NamePost
 
 name ::
-    ( APIConstraints api
-    ) =>
-    Proxy api ->
-    PlayerId ->
     StateKey ->
     NamePost ->
-    AppM (Html ())
-name api me stateKey p = do
-    (stateKey', (gs, _)) <- updateGameState stateKey
-        $ \case
-            InLobby settings ->
-                (InLobby $ settings & #players %~ HashMap.update (const $ Just $ Just $ p ^. #name) (p ^. #playerId), mempty)
-            x -> (x, mempty)
-    pure $ gameStateUI api me stateKey' gs
+    AppM NoContent
+name stateKey p =
+    NoContent
+        <$ updateGameState
+            stateKey
+            ( \case
+                InLobby settings ->
+                    (InLobby $ settings & #players %~ HashMap.update (const $ Just $ Just $ p ^. #name) (p ^. #playerId), mempty)
+                x -> (x, mempty)
+            )
 
 start ::
-    ( APIConstraints api
-    ) =>
-    Proxy api ->
-    PlayerId ->
     StateKey ->
-    AppM (Html ())
-start api me stateKey = do
-    (stateKey', (gs, _)) <- updateGameState stateKey $ \case
+    AppM NoContent
+start stateKey = do
+    (_, (gs, _)) <- updateGameState stateKey $ \case
         InLobby settings -> maybe (InLobby settings, mempty) (over _1 InGame) $ startGame settings
         x -> (x, mempty)
     a <- ask
     case gs of
         InGame _ -> startTimer a
         _ -> pure ()
-    pure $ gameStateUI api me stateKey' gs
-
-gameStateEventsHeaderForPlayer :: (AddHeader h GameStateEventsHeader orig new) => PlayerId -> GameStateEvents -> orig -> new
-gameStateEventsHeaderForPlayer me = maybe noHeader (addHeader . GameStateEventsHeader) . eventsForPlayer me
+    pure NoContent
 
 startOver ::
-    ( APIConstraints api
-    ) =>
-    Proxy api ->
-    PlayerId ->
     StateKey ->
-    AppM (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
-startOver api me stateKey = do
+    AppM NoContent
+startOver stateKey = do
     stopTimer =<< ask
-    (stateKey', (gs, events)) <- updateGameState stateKey $ \case
+    void $ updateGameState stateKey $ \case
         InGame gs ->
             ( InLobby $ gs ^. #settings
             , GameStateEvents
@@ -247,7 +183,7 @@ startOver api me stateKey = do
         x -> (x, mempty)
     a <- ask
     stopTimer a
-    pure $ gameStateEventsHeaderForPlayer me events $ gameStateUI api me stateKey' gs
+    pure NoContent
 
 newtype GuessPost = GuessPost {guess :: CaseInsensitiveText}
     deriving stock (Show, Generic)
@@ -255,19 +191,13 @@ newtype GuessPost = GuessPost {guess :: CaseInsensitiveText}
 instance FromForm GuessPost
 
 guessHandler ::
-    ( APIConstraints api
-    ) =>
-    Proxy api ->
-    PlayerId ->
     StateKey ->
     GuessPost ->
-    AppM (Headers '[Header "HX-Trigger-After-Swap" GameStateEventsHeader] (Html ()))
-guessHandler api me stateKey p = do
-    (stateKey', (gs, events)) <- updateGameState stateKey $ \case
+    AppM NoContent
+guessHandler stateKey p = do
+    (_, (gs, _)) <- updateGameState stateKey $ \case
         InGame gs -> let (gs', events) = makeMove gs $ Guess $ p ^. #guess in (InGame gs', events)
         x -> (x, mempty)
-    let
-        html = gameStateUI api me stateKey' gs
     case gs of
         InGame gsS -> do
             a <- ask
@@ -276,8 +206,8 @@ guessHandler api me stateKey p = do
                 $ if isGameOver gsS
                     then stopTimer a
                     else restartTimer a
-            pure $ gameStateEventsHeaderForPlayer me events html
-        _ -> pure $ noHeader html
+            pure NoContent
+        _ -> pure NoContent
 
 data WsMsg = WsMsg
     { guess :: Text
@@ -286,39 +216,9 @@ data WsMsg = WsMsg
     deriving stock (Show, Generic)
     deriving anyclass (Aeson.FromJSON)
 
-data WsResponseMsg = WsResponseMsg
-    { html :: Html ()
-    , events :: Maybe (Seq GameStateEvent)
-    , stateKey :: StateKey
-    , chanMsg :: AppGameStateChanMsg
-    }
-    deriving stock (Generic)
+sendHtmlMsg :: (MonadIO m) => WS.Connection -> Html () -> m ()
+sendHtmlMsg c = liftIO . WS.sendTextData @Text c . TL.toStrict . renderText
 
-wsResponseMsgKeyValues :: (Aeson.KeyValue a) => WsResponseMsg -> [a]
-wsResponseMsgKeyValues msg =
-    [ "html" Aeson..= (msg ^. #html % to renderText)
-    , "events" Aeson..= (msg ^. #events)
-    , "stateKey" Aeson..= (msg ^. #stateKey)
-    , "chanMsg"
-        Aeson..= (msg ^. #chanMsg % to chanMsgJSON)
-    ]
-  where
-    chanMsgJSON :: AppGameStateChanMsg -> Text
-    chanMsgJSON = \case
-        PlayerTyping{} -> "PlayerTyping"
-        AppGameStateChanged -> "AppGameStateChanged"
-
-instance Aeson.ToJSON WsResponseMsg where
-    toJSON = Aeson.object . wsResponseMsgKeyValues
-    toEncoding =
-        Aeson.pairs . fold . wsResponseMsgKeyValues
-
-sendWsMsg :: WS.Connection -> WsResponseMsg -> IO ()
-sendWsMsg c =
-    WS.sendTextData @Text c
-        . decodeUtf8Lenient
-        . BSL.toStrict
-        . Aeson.encode
 ws ::
     ( HasCallStack
     , APIConstraints api
@@ -357,27 +257,13 @@ ws api me c = do
                 chanMsg <- readTChan myChan
                 appGameState <- readTVar $ a ^. #wsGameState
                 pure $ case chanMsg of
-                    AppGameStateChanged -> do
-                        let
-                            gs = appGameState ^. #game
-                            stateKey = appGameState ^. #stateKey
-                        liftIO
-                            $ sendWsMsg
-                                c
-                                WsResponseMsg
-                                    { html = gameStateUI api me stateKey gs
-                                    , events = eventsForPlayer me $ appGameState ^. #events
-                                    , ..
-                                    }
+                    AppGameStateChanged stateKey game events ->
+                        sendHtmlMsg c
+                            $ gameStateUI api me stateKey game
+                            $ eventsForPlayer me events
                     PlayerTyping stateKey typer guess ->
                         when (stateKey == (appGameState ^. #stateKey) && typer /= me)
-                            $ liftIO
-                            $ sendWsMsg
-                                c
-                                WsResponseMsg
-                                    { events = Nothing
-                                    , html = guessInput guess False typer
-                                    , ..
-                                    }
+                            $ sendHtmlMsg c
+                            $ guessInput guess False typer
             sender
     runConcurrently $ asum (Concurrently <$> [pingThread 0, listener, sender])

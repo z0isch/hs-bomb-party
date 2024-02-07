@@ -1,57 +1,39 @@
 (function () {
   htmx.defineExtension("game-state-ws", {
-    transformResponse: function (resp, xhr, elt) {
-      // This seems to be a ws response
-      if (xhr === null) {
-        return JSON.parse(resp).html;
-      } else {
-        return resp;
-      }
-    },
     onEvent: function (name, evt) {
-      const currentStateKey = parseInt(
-        document.getElementById("gameState")?.getAttribute("data-state-key")
-      );
-
-      if (name === "htmx:wsConfigSend") {
-        evt.detail.parameters.stateKey = currentStateKey;
-      }
-
-      if (name === "htmx:wsBeforeMessage") {
-        try {
-          const { events, html, stateKey, chanMsg } = JSON.parse(
-            evt.detail.message
+      switch (name) {
+        case "htmx:wsConfigSend": {
+          const currentStateKey = parseInt(
+            document.getElementById("gameState")?.getAttribute("data-state-key")
           );
-          switch (chanMsg) {
-            case "PlayerTyping": {
-              if (currentStateKey !== stateKey) {
-                evt.preventDefault();
-                return;
-              }
-              break;
-            }
-            case "AppGameStateChanged": {
-              if (stateKey <= currentStateKey) {
-                evt.preventDefault();
-                return;
-              }
-              break;
-            }
-            default:
-              throw new Error(`Unrecognized chanMsg: ${chanMsg}`);
-          }
-          if (events) {
-            for (const event of events) {
-              if (event) {
-                for (const [key, value] of Object.entries(event)) {
-                  htmx.trigger("body", key, value);
+          evt.detail.parameters.stateKey = currentStateKey;
+          return true;
+        }
+
+        case "htmx:wsAfterMessage": {
+          const mEvents = new DOMParser()
+            .parseFromString(evt.detail.message, "text/html")
+            .getElementById("gameState")
+            ?.getAttribute("data-game-state-events");
+
+          if (mEvents) {
+            const events = JSON.parse(mEvents);
+            if (events) {
+              console.log(events);
+              for (const event of events) {
+                if (event) {
+                  for (const [key, value] of Object.entries(event)) {
+                    htmx.trigger("body", key, value);
+                  }
                 }
               }
             }
           }
-        } catch (e) {
-          console.error(e);
-          evt.preventDefault();
+          return true;
+        }
+
+        default: {
+          return true;
         }
       }
     },

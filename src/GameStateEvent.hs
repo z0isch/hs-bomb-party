@@ -1,15 +1,12 @@
-module GameStateEvent (GameStateEvents (..), GameStateEvent (..), GameStateEventsHeader (..), eventsForPlayer) where
+module GameStateEvent (GameStateEvents (..), GameStateEvent (..), eventsForPlayer) where
 
 import CaseInsensitive (CaseInsensitiveChar)
 import CustomPrelude
 import Data.Aeson (ToJSON (..))
 import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Text as Aeson
 import qualified Data.Aeson.Types as Aeson
 import Data.Coerce (coerce)
 import qualified RIO.HashMap as HashMap
-import qualified RIO.Text.Lazy as TL
-import Servant (ToHttpApiData (..))
 import WithPlayerApi (PlayerId)
 
 newtype GameStateEvents = GameStateEvents (HashMap PlayerId (Seq GameStateEvent))
@@ -49,8 +46,3 @@ toPair = \case
     WrongGuess -> ("WrongGuess", Aeson.Null)
     CorrectGuess -> ("CorrectGuess", Aeson.Null)
     FreeLetterAward c -> ("FreeLetterAward", Aeson.object [("char", toJSON c)])
-
-newtype GameStateEventsHeader = GameStateEventsHeader {getGameStateEventsHeader :: Seq GameStateEvent}
-
-instance ToHttpApiData GameStateEventsHeader where
-    toUrlPiece (GameStateEventsHeader events) = TL.toStrict $ Aeson.encodeToLazyText $ Aeson.object $ foldMap ((: []) . toPair) events

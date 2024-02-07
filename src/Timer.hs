@@ -28,12 +28,13 @@ startTimer a = do
             case appGameState ^. #game of
                 (InGame gss) -> do
                     let (gs', events) = makeMove gss TimeUp
+                    let stateKey = 1 + appGameState ^. #stateKey
                     writeTVar (a ^. #wsGameState)
                         $ appGameState
                         & (#game .~ InGame gs')
-                        & (#stateKey %~ (+ 1))
+                        & (#stateKey .~ stateKey)
                         & (#events .~ events)
-                    writeTChan (appGameState ^. #chan) AppGameStateChanged
+                    writeTChan (appGameState ^. #chan) (AppGameStateChanged stateKey (InGame gs') events)
                     pure $ unless (isGameOver gs') go
                 _ -> pure $ pure ()
 
