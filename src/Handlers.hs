@@ -47,10 +47,10 @@ home ::
 home api mHotreload me = do
     a <- ask
     appGameState <- liftIO $ readTVarIO $ a ^. #wsGameState
-    pure $ html_ $ do
+    pure $ doctypehtml_ $ html_ $ do
         head_ $ sharedHead mHotreload
         body_
-            $ div_
+            $ main_
                 [ id_ "ws"
                 , hxExt_ "ws,game-state-ws"
                 , makeAttribute "ws-connect" $ "/" <> toUrlPiece (safeLink api (Proxy @("ws" :> WebSocket)))

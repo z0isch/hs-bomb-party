@@ -60,3 +60,4 @@ etc/scripts/stack-scripts.cabal
 better-cache/
 
 log
+node_modules/**

@@ -11,3 +11,7 @@ ghcid-devel: ## Run the server in fast development mode. See DevelMain for detai
 .PHONY: push-image
 push-image: ## Build the container image and push it as latest to docker
 	docker build -t hs-bomb-party . --tag z0isch/hs-bomb-party:latest && docker push z0isch/hs-bomb-party:latest
+
+.PHONY: watch-css
+watch-css: 
+	npx tailwindcss -i ./static/css/input.css -o ./static/css/output.css --minify --watch

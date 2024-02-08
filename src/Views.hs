@@ -38,8 +38,7 @@ sharedHead mHotreload = head_ $ do
     meta_ [charset_ "UTF-8"]
     meta_ [name_ "viewport_", content_ "width=device-width, initial-scale=1.0"]
     link_ [rel_ "icon", href_ "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💣</text></svg>"]
-    link_ [href_ "/static/css/index.css", rel_ "stylesheet"]
-    script_ [src_ "https://cdn.tailwindcss.com"] ("" :: String)
+    link_ [href_ "/static/css/output.css", rel_ "stylesheet"]
     script_
         [ src_ "https://unpkg.com/htmx.org@1.9.10"
         , integrity_ "sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
