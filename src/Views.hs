@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Views (APIConstraints, gameStateUI, guessInput, sharedHead) where
+module Views (gameStateUI, guessInput, sharedHead) where
 
 import CustomPrelude
 
@@ -26,60 +26,12 @@ import Lucid hiding (for_)
 import qualified Lucid
 import Lucid.Base (makeAttribute)
 import Lucid.Htmx
-import Lucid.Htmx.Servant (hxPostSafe_)
 import qualified RIO.ByteString.Lazy as BSL
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
 import qualified RIO.Text as T
-import Servant
-import Servant.HTML.Lucid
 import Text.Shakespeare.Text (st)
 import WithPlayerApi (PlayerId (..))
-
-type APIConstraints api =
-    ( IsElem
-        ( Capture "stateKey" StateKey
-            :> "leave"
-            :> Post '[HTML] NoContent
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "join"
-            :> Post '[HTML] NoContent
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "start"
-            :> Post '[HTML] NoContent
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "settings"
-            :> Post '[HTML] NoContent
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "name"
-            :> Post '[HTML] NoContent
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "start-over"
-            :> Post '[HTML] NoContent
-        )
-        api
-    , IsElem
-        ( Capture "stateKey" StateKey
-            :> "guess"
-            :> Post '[HTML] NoContent
-        )
-        api
-    )
 
 sharedHead :: Maybe (Html ()) -> Html ()
 sharedHead mHotreload = head_ $ do
@@ -101,15 +53,12 @@ sharedHead mHotreload = head_ $ do
     sequenceA_ mHotreload
 
 gameStateUI ::
-    ( APIConstraints api
-    ) =>
-    Proxy api ->
     PlayerId ->
     StateKey ->
     Game ->
     Maybe (Seq GameStateEvent) ->
     Html ()
-gameStateUI api me stateKey game events = div_
+gameStateUI me stateKey game events = div_
     [ id_ "gameState"
     , makeAttribute "data-state-key" (tshow stateKey)
     , makeAttribute "data-game-state-events" (decodeUtf8Lenient $ BSL.toStrict $ Aeson.encode events)
@@ -119,24 +68,24 @@ gameStateUI api me stateKey game events = div_
             InLobby settings -> do
                 h1_ "Settings"
                 div_ $ do
-                    label_ [Lucid.for_ "secondsToGuess"] "Seconds per  guess"
+                    label_ [Lucid.for_ "secondsToGuess"] "Seconds per guess"
                     input_
                         [ id_ "secondsToGuess"
                         , name_ "secondsToGuess"
                         , class_ "border-2 caret-blue-900"
                         , autocomplete_ "off"
-                        , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "settings" :> Post '[HTML] NoContent)) stateKey
                         , type_ "number"
                         , value_ $ tshow $ settings ^. #secondsToGuess
+                        , makeAttribute "ws-send" ""
+                        , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Settings"}|]
                         ]
                 h1_ "Players"
                 ul_ $ for_ (HashMap.toList $ settings ^. #players) $ \(pId, mName) -> li_ $ do
                     button_
                         [ type_ "button"
                         , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
-                        , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "leave" :> Post '[HTML] NoContent)) stateKey
-                        , hxTarget_ "#gameState"
-                        , hxVals_ [st|{"playerId":"#{UUID.toText $ getPlayerId pId}"}|]
+                        , makeAttribute "ws-send" ""
+                        , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Leave", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
                         ]
                         "x"
                     let isMe = pId == me
@@ -144,8 +93,8 @@ gameStateUI api me stateKey game events = div_
                         $ [ class_ $ "w-1/3 border-2 caret-blue-900" <> (if isMe then "" else " bg-slate-300")
                           , name_ "name"
                           , value_ $ fromMaybe (T.pack $ show $ getPlayerId pId) mName
-                          , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "name" :> Post '[HTML] NoContent)) stateKey
-                          , hxVals_ [st|{"playerId":"#{UUID.toText $ getPlayerId pId}"}|]
+                          , makeAttribute "ws-send" ""
+                          , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Name", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
                           , autocomplete_ "off"
                           ]
                         <> [disabled_ "" | not isMe]
@@ -153,16 +102,16 @@ gameStateUI api me stateKey game events = div_
                     $ button_
                         [ type_ "button"
                         , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
-                        , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "join" :> Post '[HTML] NoContent)) stateKey
-                        , hxTarget_ "#gameState"
+                        , makeAttribute "ws-send" ""
+                        , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Join"}|]
                         ]
                         "Join Game"
                 unless (null $ settings ^. #players)
                     $ button_
                         [ type_ "button"
                         , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
-                        , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "start" :> Post '[HTML] NoContent)) stateKey
-                        , hxTarget_ "#gameState"
+                        , makeAttribute "ws-send" ""
+                        , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Start"}|]
                         ]
                         "Start Game"
             InGame gs -> do
@@ -170,8 +119,8 @@ gameStateUI api me stateKey game events = div_
                     [ type_ "button"
                     , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
                     , tabindex_ "-1"
-                    , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "start-over" :> Post '[HTML] NoContent)) stateKey
-                    , hxTarget_ "#gameState"
+                    , makeAttribute "ws-send" ""
+                    , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"StartOver"}|]
                     ]
                     "Start A New Game"
                 unless (isGameOver gs)
@@ -185,23 +134,15 @@ gameStateUI api me stateKey game events = div_
                     , class_ "space-y-3"
                     ]
                     $ do
-                        traverse_ (playerStateUI api me stateKey gs) $ playerFirst me $ gs ^. #players
+                        traverse_ (playerStateUI me stateKey gs) $ playerFirst me $ gs ^. #players
 
 playerStateUI ::
-    ( IsElem
-        ( Capture "stateKey" StateKey
-            :> "guess"
-            :> Post '[HTML] NoContent
-        )
-        api
-    ) =>
-    Proxy api ->
     PlayerId ->
     StateKey ->
     GameState ->
     PlayerState ->
     Html ()
-playerStateUI api me stateKey gs ps = do
+playerStateUI me stateKey gs ps = do
     li_
         [ id_ $ "player-state-" <> UUID.toText (getPlayerId me)
         , class_ $ "p-2 rounded-lg " <> bg <> " " <> outline
@@ -217,11 +158,12 @@ playerStateUI api me stateKey gs ps = do
                             div_ [id_ $ "player-state-lives-" <> UUID.toText (getPlayerId me)] $ replicateM_ (ps ^. #lives) $ toHtml ("❤️" :: String)
                             form_
                                 [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
-                                , hxPostSafe_ $ safeLink api (Proxy @(Capture "stateKey" StateKey :> "guess" :> Post '[HTML] NoContent)) stateKey
-                                , hxTarget_ "#gameState"
+                                , makeAttribute "ws-send" ""
+                                , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Guess"}|]
                                 ]
                                 $ do
                                     guessInput
+                                        stateKey
                                         (maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord)
                                         (ps ^. #id == me && isPlayerTurn (gs ^. #players) ps)
                                         (ps ^. #id)
@@ -239,8 +181,8 @@ playerStateUI api me stateKey gs ps = do
 playerInputId :: PlayerId -> Text
 playerInputId playerId = "input-" <> UUID.toText (getPlayerId playerId)
 
-guessInput :: Text -> Bool -> PlayerId -> Html ()
-guessInput v enabled playerId = do
+guessInput :: StateKey -> Text -> Bool -> PlayerId -> Html ()
+guessInput stateKey v enabled playerId = do
     input_
         ( [ id_ $ playerInputId playerId
           , name_ "guess"
@@ -252,6 +194,7 @@ guessInput v enabled playerId = do
                    )
           , value_ v
           , autocomplete_ "off"
+          , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Typing"}|]
           ]
             <> [disabled_ "" | not enabled]
             <> [autofocus_ | enabled]

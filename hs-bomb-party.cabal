@@ -39,6 +39,7 @@ library
       Views
       WithPlayerApi
       WordHelpers
+      WsMsg
   other-modules:
       Paths_hs_bomb_party
   autogen-modules:

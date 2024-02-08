@@ -2,14 +2,6 @@
   htmx.defineExtension("game-state-ws", {
     onEvent: function (name, evt) {
       switch (name) {
-        case "htmx:wsConfigSend": {
-          const currentStateKey = parseInt(
-            document.getElementById("gameState")?.getAttribute("data-state-key")
-          );
-          evt.detail.parameters.stateKey = currentStateKey;
-          return true;
-        }
-
         case "htmx:wsAfterMessage": {
           const mEvents = new DOMParser()
             .parseFromString(evt.detail.message, "text/html")

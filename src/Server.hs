@@ -7,7 +7,7 @@ module Server (app) where
 
 import CustomPrelude
 
-import App (App (..), AppM, StateKey)
+import App (App (..), AppM)
 import Control.Monad.Except (ExceptT (..))
 import qualified Handlers
 import Lucid hiding (for_)
@@ -20,28 +20,8 @@ import qualified WithPlayerApi
 
 type API =
     Get '[HTML] (Html ())
-        :<|> StateChangeAPI
         :<|> "ws"
             :> WebSocket
-
-type StateChangeAPI =
-    Capture "stateKey" StateKey
-        :> ( "join" :> Post '[HTML] NoContent
-                :<|> "leave"
-                    :> ReqBody '[FormUrlEncoded] Handlers.LeavePost
-                    :> Post '[HTML] NoContent
-                :<|> "settings"
-                    :> ReqBody '[FormUrlEncoded] Handlers.SettingsPost
-                    :> Post '[HTML] NoContent
-                :<|> "name"
-                    :> ReqBody '[FormUrlEncoded] Handlers.NamePost
-                    :> Post '[HTML] NoContent
-                :<|> "start" :> Post '[HTML] NoContent
-                :<|> "start-over" :> Post '[HTML] NoContent
-                :<|> "guess"
-                    :> ReqBody '[FormUrlEncoded] Handlers.GuessPost
-                    :> Post '[HTML] NoContent
-           )
 
 api :: Proxy API
 api = Proxy
@@ -68,18 +48,7 @@ totalApiServer a mHotReload =
 server :: Maybe (Html ()) -> PlayerId -> ServerT API AppM
 server mHotReload playerId =
     Handlers.home api mHotReload playerId
-        :<|> stateChangeServer playerId
-        :<|> Handlers.ws api playerId
-
-stateChangeServer :: PlayerId -> ServerT StateChangeAPI AppM
-stateChangeServer playerId stateId =
-    Handlers.joinHandler playerId stateId
-        :<|> Handlers.leave stateId
-        :<|> Handlers.settingsHandler stateId
-        :<|> Handlers.name stateId
-        :<|> Handlers.start stateId
-        :<|> Handlers.startOver stateId
-        :<|> Handlers.guessHandler stateId
+        :<|> Handlers.ws playerId
 
 app :: App -> Maybe (Html ()) -> Application
 app a = serve totalApi . totalApiServer a
