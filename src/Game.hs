@@ -146,6 +146,7 @@ makeMove gs = (\x -> execRWS x () gs) . runMove
                 #alreadyUsedWords %= HashSet.insert guess
                 pickNewGivenLetters
                 #players %= nextPlayer
+                currentPlayerL % #lastUsedWord .= Nothing
                 #round += 1
                 tellCurrentPlayer GameStateEvent.MyTurn
             | otherwise -> do
@@ -156,6 +157,7 @@ makeMove gs = (\x -> execRWS x () gs) . runMove
             zoom currentPlayerL $ do
                 #lives -= 1
                 #tries .= 0
+                #lastUsedWord .= Nothing
             #players %= nextPlayer
             currentPlayerL % #lastUsedWord .= Nothing
             use (to isGameOver) >>= \case
