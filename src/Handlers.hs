@@ -10,7 +10,7 @@ module Handlers (
 
 import CustomPrelude
 
-import App (App (..), AppGameState (..), AppGameStateChanMsg (..), AppM, Game (..), StateKey)
+import App (App (..), AppGameState (..), AppGameStateChanMsg (..), AppM, Game (..), StateKey, _InGame)
 import qualified CircularZipper as CZ
 import qualified Data.Aeson as Aeson
 import Game (
@@ -58,7 +58,7 @@ home api mHotreload me = do
                 ]
             $ gameStateUI me (appGameState ^. #stateKey) (appGameState ^. #game) Nothing
 
-updateGameState :: StateKey -> (Game -> (Game, GameStateEvents)) -> AppM (StateKey, (Game, GameStateEvents))
+updateGameState :: StateKey -> (Game -> (Game, GameStateEvents)) -> AppM Game
 updateGameState stateKey f = do
     a <- ask
     atomically $ do
@@ -68,9 +68,10 @@ updateGameState stateKey f = do
                 let
                     (gs', events) = f $ appGameState ^. #game
                     stateKey' = stateKey + 1
-                writeTVar (a ^. #wsGameState) appGameState{stateKey = stateKey', game = gs', events}
-                (stateKey', (gs', events)) <$ writeTChan (appGameState ^. #chan) (AppGameStateChanged stateKey' gs' events)
-            else pure (appGameState ^. #stateKey, (appGameState ^. #game, appGameState ^. #events))
+                    appGameState' = appGameState{stateKey = stateKey', game = gs', events}
+                writeTVar (a ^. #wsGameState) appGameState'
+                gs' <$ writeTChan (a ^. #wsGameChan) AppGameStateChanged
+            else pure $ appGameState ^. #game
 
 handleWsMsg :: PlayerId -> TChan AppGameStateChanMsg -> WsMsg -> AppM ()
 handleWsMsg me chan m = do
@@ -115,12 +116,10 @@ handleWsMsg me chan m = do
                         x -> (x, mempty)
                     )
         StartMsg msg -> do
-            (_, (gs, _)) <- updateGameState (msg ^. #stateKey) $ \case
+            gs <- updateGameState (msg ^. #stateKey) $ \case
                 InLobby settings -> maybe (InLobby settings, mempty) (over _1 InGame) $ startGame settings
                 x -> (x, mempty)
-            case gs of
-                InGame _ -> startTimer a
-                _ -> pure ()
+            traverseOf_ _InGame (const $ startTimer a) gs
         StartOverMsg msg -> do
             stopTimer a
             void $ updateGameState (msg ^. #stateKey) $ \case
@@ -130,19 +129,16 @@ handleWsMsg me chan m = do
                         $ HashMap.fromList (gs ^.. #players % folded % #id % to (,pure GameOver))
                     )
                 x -> (x, mempty)
-            stopTimer a
         GuessMsg msg -> do
-            (_, (gs, _)) <- updateGameState (msg ^. #stateKey) $ \case
+            gs <- updateGameState (msg ^. #stateKey) $ \case
                 InGame gs -> let (gs', events) = makeMove gs $ Guess $ msg ^. #contents % #guess in (InGame gs', events)
                 x -> (x, mempty)
-            case gs of
-                InGame gsS -> do
-                    -- It's the next players turn
-                    when (CZ.current (gsS ^. #players) ^. #tries == 0)
-                        $ if isGameOver gsS
-                            then stopTimer a
-                            else restartTimer a
-                _ -> pure ()
+            forOf_ _InGame gs $ \gsS -> do
+                -- It's the next players turn
+                when (CZ.current (gsS ^. #players) ^. #tries == 0)
+                    $ if isGameOver gsS
+                        then stopTimer a
+                        else restartTimer a
 
 sendHtmlMsg :: (MonadIO m) => WS.Connection -> Html () -> m ()
 sendHtmlMsg c = liftIO . WS.sendTextData @Text c . TL.toStrict . renderText
@@ -154,7 +150,7 @@ ws ::
     AppM ()
 ws me c = do
     a <- ask
-    myChan <- atomically $ dupTChan . view #chan =<< readTVar (a ^. #wsGameState)
+    myChan <- atomically $ dupTChan (a ^. #wsGameChan)
     let
         pingThread :: Int -> AppM ()
         pingThread i = do
@@ -174,14 +170,14 @@ ws me c = do
         sender :: AppM ()
         sender = do
             join $ atomically $ do
-                chanMsg <- readTChan myChan
                 appGameState <- readTVar $ a ^. #wsGameState
+                chanMsg <- readTChan myChan
                 pure $ case chanMsg of
-                    AppGameStateChanged stateKey game events ->
+                    AppGameStateChanged ->
                         sendHtmlMsg c
-                            $ gameStateUI me stateKey game
-                            $ eventsForPlayer me events
-                    PlayerTyping stateKey typer guess ->
+                            $ gameStateUI me (appGameState ^. #stateKey) (appGameState ^. #game)
+                            $ eventsForPlayer me (appGameState ^. #events)
+                    PlayerTyping stateKey typer guess -> do
                         when (stateKey == (appGameState ^. #stateKey) && typer /= me)
                             $ sendHtmlMsg c
                             $ guessInput stateKey guess False typer

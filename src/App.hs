@@ -25,20 +25,20 @@ newtype StateKey = StateKey {getStateKey :: Int}
     deriving newtype (Eq, Show, Num, Display, ToJSON, FromJSON, FromHttpApiData, ToHttpApiData)
 
 data AppGameStateChanMsg
-    = AppGameStateChanged StateKey Game GameStateEvents
+    = AppGameStateChanged
     | PlayerTyping StateKey PlayerId Text
 
 data AppGameState = AppGameState
     { stateKey :: StateKey
     , game :: Game
     , events :: GameStateEvents
-    , chan :: TChan AppGameStateChanMsg
     }
     deriving (Generic)
 
 data App = App
     { wsGameState :: TVar AppGameState
     , wsGameStateTimer :: TVar (Maybe (Async ()))
+    , wsGameChan :: TChan AppGameStateChanMsg
     , logFunction :: LogFunc
     , staticDir :: FilePath
     }

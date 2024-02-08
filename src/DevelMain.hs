@@ -26,8 +26,6 @@ update =
         reloadChan <- createRef @Text r "reloadChan" newChan
 
         wsGameState <- createRef @Text r "wsGameState" $ do
-            let
-            chan <- newBroadcastTChanIO
             newTVarIO
                 $ AppGameState
                     { game =
@@ -40,6 +38,8 @@ update =
                     , events = mempty
                     , ..
                     }
+
+        wsGameChan <- createRef @Text r "wsGameStateChan" newBroadcastTChanIO
 
         wsGameStateTimer <- createRef @Text r "wsGameStateTimer" $ newTVarIO Nothing
 
