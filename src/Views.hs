@@ -200,7 +200,7 @@ guessInput v enabled playerId = do
             <> [autofocus_ | enabled]
             <> [makeAttribute "ws-send" "" | enabled]
             <> [hxTrigger_ "keyup changed delay:50ms" | enabled]
-            <> [makeAttribute "_" "on WrongGuess from elsewhere add .shake" | enabled]
+            <> [makeAttribute "_" "on WrongGuess from elsewhere add .shake then settle remove .shake" | enabled]
         )
 
 letterUI :: PlayerState -> Html ()
