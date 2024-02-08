@@ -6,6 +6,7 @@ module CircularZipper (
     rights,
     left,
     lefts,
+    others,
     fromNonEmpty,
     findRight,
 ) where
@@ -44,6 +45,9 @@ lefts = coerce @(Zipper a -> [a]) Z.lefts
 
 left :: CircularZipper a -> CircularZipper a
 left (CircularZipper z) = CircularZipper $ fromMaybe (Z.end z) $ Z.left z
+
+others :: CircularZipper a -> [a]
+others cz = lefts cz <> rights cz
 
 findRight :: (a -> Bool) -> CircularZipper a -> Maybe (CircularZipper a)
 findRight f z = go 0 z

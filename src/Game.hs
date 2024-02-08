@@ -164,7 +164,7 @@ makeMove gs = (\x -> execRWS x () gs) . runMove
                     tellCurrentPlayer GameStateEvent.MyTurn
                 True -> do
                     tellCurrentPlayer GameStateEvent.IWin
-                    tellEvents (#players % folding CZ.rights) GameStateEvent.ILose
+                    tellEvents (#players % folding CZ.others) GameStateEvent.ILose
                     tellEvents (#players % folded) GameStateEvent.GameOver
 
 genRandom :: (Random a) => (a, a) -> (MonadState GameState m) => m a
