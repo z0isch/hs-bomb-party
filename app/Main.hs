@@ -24,9 +24,7 @@ main = do
 
     stdGen <- newStdGen
 
-    wsGameState <- do
-        let
-        chan <- newBroadcastTChanIO
+    wsGameState <-
         newTVarIO
             AppGameState
                 { stateKey = 0
@@ -40,6 +38,7 @@ main = do
                 , ..
                 }
 
+    wsGameChan <- newBroadcastTChanIO
     wsGameStateTimer <- newTVarIO Nothing
 
     logOptions' <- logOptionsHandle stderr False
