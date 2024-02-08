@@ -1,21 +1,32 @@
 (function () {
+  const eventsAttr = "data-game-state-events";
   htmx.defineExtension("game-state-ws", {
     onEvent: function (name, evt) {
       switch (name) {
-        case "htmx:wsAfterMessage": {
-          const mEvents = new DOMParser()
-            .parseFromString(evt.detail.message, "text/html")
-            .getElementById("gameState")
-            ?.getAttribute("data-game-state-events");
+        case "htmx:wsConfigSend": {
+          const currentStateKey = parseInt(
+            document.getElementById("gameState")?.getAttribute("data-state-key")
+          );
+          evt.detail.parameters.stateKey = currentStateKey;
+          return true;
+        }
 
-          if (mEvents) {
-            const events = JSON.parse(mEvents);
-            if (events) {
-              console.log(events);
-              for (const event of events) {
-                if (event) {
-                  for (const [key, value] of Object.entries(event)) {
-                    htmx.trigger("body", key, value);
+        case "htmx:wsAfterMessage": {
+          const els = new DOMParser()
+            .parseFromString(evt.detail.message, "text/html")
+            .querySelectorAll(`[${eventsAttr}]`);
+
+          for (const el of els) {
+            const mEvents = el.getAttribute(eventsAttr);
+            if (mEvents) {
+              const events = JSON.parse(mEvents);
+              if (events) {
+                console.log(events);
+                for (const event of events) {
+                  if (event) {
+                    for (const [key, value] of Object.entries(event)) {
+                      htmx.trigger("body", key, value);
+                    }
                   }
                 }
               }

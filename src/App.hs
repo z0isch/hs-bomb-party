@@ -17,6 +17,7 @@ import Servant (FromHttpApiData, ToHttpApiData)
 import WithPlayerApi (PlayerId)
 
 data Game = InLobby Settings | InGame GameState
+    deriving stock (Show)
 makePrisms ''Game
 
 type AppM = RIO App

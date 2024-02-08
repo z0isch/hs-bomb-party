@@ -52,7 +52,7 @@ home api mHotreload me = do
         body_
             $ main_
                 [ id_ "ws"
-                , hxExt_ "ws,game-state-ws"
+                , hxExt_ "ws,game-state-ws,morph"
                 , makeAttribute "ws-connect" $ "/" <> toUrlPiece (safeLink api (Proxy @("ws" :> WebSocket)))
                 , class_ "container mx-auto px-4 py-4"
                 ]
@@ -173,13 +173,14 @@ ws me c = do
                 appGameState <- readTVar $ a ^. #wsGameState
                 chanMsg <- readTChan myChan
                 pure $ case chanMsg of
-                    AppGameStateChanged ->
+                    AppGameStateChanged -> do
+                        logDebug $ displayPretty $ appGameState ^. #game
                         sendHtmlMsg c
                             $ gameStateUI me (appGameState ^. #stateKey) (appGameState ^. #game)
                             $ eventsForPlayer me (appGameState ^. #events)
                     PlayerTyping stateKey typer guess -> do
                         when (stateKey == (appGameState ^. #stateKey) && typer /= me)
                             $ sendHtmlMsg c
-                            $ guessInput stateKey guess False typer
+                            $ guessInput guess False typer
             sender
     runConcurrently $ asum (Concurrently <$> [pingThread 0, listener, sender])

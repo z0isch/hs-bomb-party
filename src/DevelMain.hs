@@ -33,7 +33,7 @@ update =
                             $ initialSettings
                                 (mkStdGen 0)
                                 (HashSet.fromList ["the", "quick", "brown", "fox", "friday"])
-                                ["fri", "day"]
+                                ["fri", "day", "the", "quick", "brown", "fox"]
                     , stateKey = 0
                     , events = mempty
                     , ..

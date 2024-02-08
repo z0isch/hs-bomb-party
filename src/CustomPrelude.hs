@@ -1,4 +1,4 @@
-module CustomPrelude (module X) where
+module CustomPrelude (module X, displayPretty) where
 
 import Data.Optics.Operators as X
 import Optics.Core as X
@@ -25,3 +25,7 @@ import RIO as X hiding (
     (^..),
     (^?),
  )
+import Text.Show.Pretty (ppShow)
+
+displayPretty :: (Show a) => a -> Utf8Builder
+displayPretty = display @Text . fromString . ppShow

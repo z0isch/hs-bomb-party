@@ -47,6 +47,7 @@ sharedHead mHotreload = head_ $ do
         ("" :: String)
     script_ [src_ "https://unpkg.com/hyperscript.org@0.9.12"] ("" :: String)
     script_ [src_ "https://unpkg.com/htmx.org/dist/ext/ws.js"] ("" :: String)
+    script_ [src_ "https://unpkg.com/idiomorph/dist/idiomorph-ext.min.js"] ("" :: String)
     script_ [src_ "/static/js/index.js"] ("" :: String)
     title_ "BombParty"
     sequenceA_ mHotreload
@@ -61,6 +62,7 @@ gameStateUI me stateKey game events = div_
     [ id_ "gameState"
     , makeAttribute "data-state-key" (tshow stateKey)
     , makeAttribute "data-game-state-events" (decodeUtf8Lenient $ BSL.toStrict $ Aeson.encode events)
+    , hxSwapOob_ "morph"
     ]
     $ do
         case game of
@@ -76,7 +78,7 @@ gameStateUI me stateKey game events = div_
                         , type_ "number"
                         , value_ $ tshow $ settings ^. #secondsToGuess
                         , makeAttribute "ws-send" ""
-                        , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Settings"}|]
+                        , hxVals_ [st|{"tag":"Settings"}|]
                         ]
                 h1_ "Players"
                 ul_ $ for_ (HashMap.toList $ settings ^. #players) $ \(pId, mName) -> li_ $ do
@@ -84,7 +86,7 @@ gameStateUI me stateKey game events = div_
                         [ type_ "button"
                         , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
                         , makeAttribute "ws-send" ""
-                        , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Leave", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
+                        , hxVals_ [st|{"tag":"Leave", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
                         ]
                         "x"
                     let isMe = pId == me
@@ -93,7 +95,7 @@ gameStateUI me stateKey game events = div_
                           , name_ "name"
                           , value_ $ fromMaybe (T.pack $ show $ getPlayerId pId) mName
                           , makeAttribute "ws-send" ""
-                          , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Name", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
+                          , hxVals_ [st|{"tag":"Name", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
                           , autocomplete_ "off"
                           ]
                         <> [disabled_ "" | not isMe]
@@ -102,7 +104,7 @@ gameStateUI me stateKey game events = div_
                         [ type_ "button"
                         , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
                         , makeAttribute "ws-send" ""
-                        , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Join"}|]
+                        , hxVals_ [st|{"tag":"Join"}|]
                         ]
                         "Join Game"
                 unless (null $ settings ^. #players)
@@ -110,7 +112,7 @@ gameStateUI me stateKey game events = div_
                         [ type_ "button"
                         , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
                         , makeAttribute "ws-send" ""
-                        , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Start"}|]
+                        , hxVals_ [st|{"tag":"Start"}|]
                         ]
                         "Start Game"
             InGame gs -> do
@@ -119,7 +121,7 @@ gameStateUI me stateKey game events = div_
                     , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
                     , tabindex_ "-1"
                     , makeAttribute "ws-send" ""
-                    , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"StartOver"}|]
+                    , hxVals_ [st|{"tag":"StartOver"}|]
                     ]
                     "Start A New Game"
                 unless (isGameOver gs)
@@ -133,15 +135,14 @@ gameStateUI me stateKey game events = div_
                     , class_ "space-y-3"
                     ]
                     $ do
-                        traverse_ (playerStateUI me stateKey gs) $ playerFirst me $ gs ^. #players
+                        traverse_ (playerStateUI me gs) $ playerFirst me $ gs ^. #players
 
 playerStateUI ::
     PlayerId ->
-    StateKey ->
     GameState ->
     PlayerState ->
     Html ()
-playerStateUI me stateKey gs ps = do
+playerStateUI me gs ps = do
     li_
         [ id_ $ "player-state-" <> UUID.toText (getPlayerId me)
         , class_ $ "p-2 rounded-lg " <> bg <> " " <> outline
@@ -158,11 +159,10 @@ playerStateUI me stateKey gs ps = do
                             form_
                                 [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
                                 , makeAttribute "ws-send" ""
-                                , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Guess"}|]
+                                , hxVals_ [st|{"tag":"Guess"}|]
                                 ]
                                 $ do
                                     guessInput
-                                        stateKey
                                         (maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord)
                                         (ps ^. #id == me && isPlayerTurn (gs ^. #players) ps)
                                         (ps ^. #id)
@@ -180,8 +180,8 @@ playerStateUI me stateKey gs ps = do
 playerInputId :: PlayerId -> Text
 playerInputId playerId = "input-" <> UUID.toText (getPlayerId playerId)
 
-guessInput :: StateKey -> Text -> Bool -> PlayerId -> Html ()
-guessInput stateKey v enabled playerId = do
+guessInput :: Text -> Bool -> PlayerId -> Html ()
+guessInput v enabled playerId = do
     input_
         ( [ id_ $ playerInputId playerId
           , name_ "guess"
@@ -193,7 +193,8 @@ guessInput stateKey v enabled playerId = do
                    )
           , value_ v
           , autocomplete_ "off"
-          , hxVals_ [st|{"stateKey":#{tshow stateKey}, "tag":"Typing"}|]
+          , hxVals_ [st|{"tag":"Typing"}|]
+          , hxSwapOob_ "morph"
           ]
             <> [disabled_ "" | not enabled]
             <> [autofocus_ | enabled]

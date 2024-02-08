@@ -41,6 +41,7 @@ dependencies:
   - optics-th
   - optics-extra
   - optics-operators
+  - pretty-show
   - rapid
   - random
   - rio
