@@ -23,19 +23,34 @@
 
 @keyframes grow {
   0% {
-    font-size: 75%;
+    font-size: 100%;
   }
-  33% {
-    font-size:  125%;
+  12.5% {
+    font-size:  90%;
   }
-  66% {
-    font-size:  133%;
+  25% {
+    font-size:  80%;
+  }
+  37.5% {
+    font-size:  70%;
+  }
+  50% {
+    font-size:  60%;
+  }
+  62.5% {
+    font-size:  50%;
+  }
+  75% {
+    font-size:  60%;
+  }
+  87.5% {
+    font-size:  80%;
   }
   100% {
-    font-size:  100%;
+    font-size:  90%;
   }
 }
 
  .grow {
-    animation: grow 2s ease-in-out 0s 2;
+    animation: grow .66s linear 0s 2;
   }

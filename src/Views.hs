@@ -6,7 +6,6 @@ module Views (gameStateUI, guessInput, sharedHead) where
 
 import CustomPrelude
 
-import qualified RIO.Seq as Seq
 import App (Game (..), StateKey)
 import CaseInsensitive (CaseInsensitiveChar (..), CaseInsensitiveText (..))
 import CircularZipper (CircularZipper (..))
@@ -30,6 +29,7 @@ import Lucid.Htmx
 import qualified RIO.ByteString.Lazy as BSL
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
+import qualified RIO.Seq as Seq
 import qualified RIO.Text as T
 import Text.Shakespeare.Text (st)
 import WithPlayerApi (PlayerId (..))
@@ -213,16 +213,15 @@ letterUI ps events = for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z'
         color = if isFree then " text-rose-600" else ""
         playerID = ps ^. #id
         isFreeLetterEvent event = case event of
-           FreeLetterAward awardLetter awardPlayerId -> playerID == awardPlayerId && l == awardLetter
-           _ -> False
+            FreeLetterAward awardLetter awardPlayerId -> playerID == awardPlayerId && l == awardLetter
+            _ -> False
         freeLetterEvent = Seq.filter isFreeLetterEvent (fromMaybe mempty events)
         freeLetterPlayer = not (Seq.null freeLetterEvent)
     span_
-        ([class_ $ "tracking-widest" <> weight <> color]
-        <> [makeAttribute "_" "on FreeLetterAward from elsewhere add .grow then settle remove .grow" | freeLetterPlayer])
+        ( [class_ $ "tracking-widest" <> weight <> color]
+            <> [makeAttribute "_" "on FreeLetterAward from elsewhere add .grow" | freeLetterPlayer]
+        )
         $ toHtml l
-
-
 
 playerFirst :: PlayerId -> CircularZipper PlayerState -> [PlayerState]
 playerFirst pId cz = CZ.current playerCurrent : CZ.rights playerCurrent <> CZ.lefts playerCurrent
