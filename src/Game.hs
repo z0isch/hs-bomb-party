@@ -184,6 +184,7 @@ awardFreeLetter ::
     m ()
 awardFreeLetter guess = do
     totalLetters <- use $ currentPlayerL % totalLettersL
+    pID <- use $ currentPlayerL % #id
     let
         allLetters = HashSet.fromList $ CaseInsensitiveChar <$> ['A' .. 'Z']
         openLetters =
@@ -194,7 +195,7 @@ awardFreeLetter guess = do
     i <- genRandom (0, length openLetters - 1)
     let letter = toList openLetters !! i
     currentPlayerL % #freeLetters %= HashSet.insert letter
-    tellCurrentPlayer $ GameStateEvent.FreeLetterAward letter
+    tellEvents (#players % folded) $ GameStateEvent.FreeLetterAward letter pID
 
 nextPlayer :: CircularZipper PlayerState -> CircularZipper PlayerState
 nextPlayer z = fromMaybe z $ findRight isPlayerAlive z

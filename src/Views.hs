@@ -6,6 +6,7 @@ module Views (gameStateUI, guessInput, sharedHead) where
 
 import CustomPrelude
 
+import qualified RIO.Seq as Seq
 import App (Game (..), StateKey)
 import CaseInsensitive (CaseInsensitiveChar (..), CaseInsensitiveText (..))
 import CircularZipper (CircularZipper (..))
@@ -21,7 +22,7 @@ import Game (
     isPlayerTurn,
     totalLettersL,
  )
-import GameStateEvent (GameStateEvent)
+import GameStateEvent (GameStateEvent (..))
 import Lucid hiding (for_)
 import qualified Lucid
 import Lucid.Base (makeAttribute)
@@ -135,14 +136,15 @@ gameStateUI me stateKey game events = div_
                     , class_ "space-y-3"
                     ]
                     $ do
-                        traverse_ (playerStateUI me gs) $ playerFirst me $ gs ^. #players
+                        traverse_ (playerStateUI me gs events) $ playerFirst me $ gs ^. #players
 
 playerStateUI ::
     PlayerId ->
     GameState ->
+    Maybe (Seq GameStateEvent) ->
     PlayerState ->
     Html ()
-playerStateUI me gs ps = do
+playerStateUI me gs events ps = do
     li_
         [ id_ $ "player-state-" <> UUID.toText (getPlayerId me)
         , class_ $ "p-2 rounded-lg " <> bg <> " " <> outline
@@ -154,7 +156,7 @@ playerStateUI me gs ps = do
                     if isGameOver gs
                         then h1_ [class_ "text-center text-2xl"] "✨✨✨✨✨WINNER✨✨✨✨✨"
                         else do
-                            letterUI ps
+                            letterUI ps events
                             div_ [id_ $ "player-state-lives-" <> UUID.toText (getPlayerId me)] $ replicateM_ (ps ^. #lives) $ toHtml ("❤️" :: String)
                             form_
                                 [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
@@ -203,15 +205,24 @@ guessInput v enabled playerId = do
             <> [makeAttribute "_" "on WrongGuess from elsewhere add .shake then settle remove .shake" | enabled]
         )
 
-letterUI :: PlayerState -> Html ()
-letterUI ps = for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')] $ \l -> do
+letterUI :: PlayerState -> Maybe (Seq GameStateEvent) -> Html ()
+letterUI ps events = for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')] $ \l -> do
     let
         isFree = l `HashSet.member` (ps ^. #freeLetters)
         weight = if l `HashSet.member` (ps ^. totalLettersL) then " font-extrabold" else " font-extralight"
         color = if isFree then " text-rose-600" else ""
+        playerID = ps ^. #id
+        isFreeLetterEvent event = case event of
+           FreeLetterAward awardLetter awardPlayerId -> playerID == awardPlayerId && l == awardLetter
+           _ -> False
+        freeLetterEvent = Seq.filter isFreeLetterEvent (fromMaybe mempty events)
+        freeLetterPlayer = not (Seq.null freeLetterEvent)
     span_
-        [class_ $ "tracking-widest" <> weight <> color]
+        ([class_ $ "tracking-widest" <> weight <> color]
+        <> [makeAttribute "_" "on FreeLetterAward from elsewhere add .grow then settle remove .grow" | freeLetterPlayer])
         $ toHtml l
+
+
 
 playerFirst :: PlayerId -> CircularZipper PlayerState -> [PlayerState]
 playerFirst pId cz = CZ.current playerCurrent : CZ.rights playerCurrent <> CZ.lefts playerCurrent

@@ -29,7 +29,7 @@ data GameStateEvent
     | GameOver
     | WrongGuess
     | CorrectGuess
-    | FreeLetterAward CaseInsensitiveChar
+    | FreeLetterAward CaseInsensitiveChar PlayerId
     deriving stock (Show)
 
 instance ToJSON GameStateEvent where
@@ -45,4 +45,4 @@ toPair = \case
     GameOver -> ("GameOver", Aeson.Null)
     WrongGuess -> ("WrongGuess", Aeson.Null)
     CorrectGuess -> ("CorrectGuess", Aeson.Null)
-    FreeLetterAward c -> ("FreeLetterAward", Aeson.object [("char", toJSON c)])
+    FreeLetterAward c pID -> ("FreeLetterAward", Aeson.object [("char", toJSON c),("playerID", toJSON pID)])
