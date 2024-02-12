@@ -19,11 +19,15 @@ import qualified RIO.Text as T
 import Servant
 import Servant.HTML.Lucid
 import Servant.Server.Internal.Delayed (passToServer)
+import Text.Shakespeare.Text (ToText (..))
 import Web.Cookie (SetCookie (..), defaultSetCookie, parseCookies)
 
 newtype PlayerId = PlayerId {getPlayerId :: UUID}
     deriving stock (Eq, Show)
     deriving newtype (Hashable, ToJSON, FromJSON)
+
+instance ToText PlayerId where
+    toText (PlayerId i) = toText $ UUID.toText i
 
 instance FromHttpApiData PlayerId where
     parseQueryParam = maybe (Left "PlayerId not a valid UUID") (Right . PlayerId) . UUID.fromText

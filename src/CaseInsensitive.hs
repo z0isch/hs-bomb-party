@@ -9,6 +9,7 @@ import Data.Hashable (Hashable (..))
 import qualified Data.Text as T
 import Lucid (ToHtml (..))
 import qualified RIO.HashSet as HashSet
+import Text.Shakespeare.Text (ToText (..))
 import Web.HttpApiData (FromHttpApiData)
 import Web.Internal.HttpApiData (FromHttpApiData (..))
 
@@ -44,6 +45,9 @@ instance Hashable CaseInsensitiveChar where
 instance ToHtml CaseInsensitiveChar where
     toHtml (CaseInsensitiveChar c) = toHtml [C.toUpper c]
     toHtmlRaw (CaseInsensitiveChar c) = toHtmlRaw [C.toUpper c]
+
+instance ToText CaseInsensitiveChar where
+    toText (CaseInsensitiveChar c) = toText [C.toUpper c]
 
 caseInsensitiveLetters :: CaseInsensitiveText -> HashSet CaseInsensitiveChar
 caseInsensitiveLetters = coerce (T.foldr (HashSet.insert . CaseInsensitiveChar) mempty)

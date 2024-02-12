@@ -136,15 +136,14 @@ gameStateUI me stateKey game events = div_
                     , class_ "space-y-3"
                     ]
                     $ do
-                        traverse_ (playerStateUI me gs events) $ playerFirst me $ gs ^. #players
+                        traverse_ (playerStateUI me gs) $ playerFirst me $ gs ^. #players
 
 playerStateUI ::
     PlayerId ->
     GameState ->
-    Maybe (Seq GameStateEvent) ->
     PlayerState ->
     Html ()
-playerStateUI me gs events ps = do
+playerStateUI me gs ps = do
     li_
         [ id_ $ "player-state-" <> UUID.toText (getPlayerId me)
         , class_ $ "p-2 rounded-lg " <> bg <> " " <> outline
@@ -156,7 +155,7 @@ playerStateUI me gs events ps = do
                     if isGameOver gs
                         then h1_ [class_ "text-center text-2xl"] "✨✨✨✨✨WINNER✨✨✨✨✨"
                         else do
-                            letterUI ps events
+                            letterUI ps
                             div_ [id_ $ "player-state-lives-" <> UUID.toText (getPlayerId me)] $ replicateM_ (ps ^. #lives) $ toHtml ("❤️" :: String)
                             form_
                                 [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
@@ -202,24 +201,19 @@ guessInput v enabled playerId = do
             <> [autofocus_ | enabled]
             <> [makeAttribute "ws-send" "" | enabled]
             <> [hxTrigger_ "keyup changed delay:50ms" | enabled]
-            <> [makeAttribute "_" "on WrongGuess from elsewhere add .shake then settle remove .shake" | enabled]
+            <> [makeAttribute "_" "on WrongGuess from elsewhere add .shake wait for animationend then remove .shake" | enabled]
         )
 
-letterUI :: PlayerState -> Maybe (Seq GameStateEvent) -> Html ()
-letterUI ps events = for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')] $ \l -> do
+letterUI :: PlayerState -> Html ()
+letterUI ps = for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')] $ \l -> do
     let
         isFree = l `HashSet.member` (ps ^. #freeLetters)
         weight = if l `HashSet.member` (ps ^. totalLettersL) then " font-extrabold" else " font-extralight"
         color = if isFree then " text-rose-600" else ""
         playerID = ps ^. #id
-        isFreeLetterEvent event = case event of
-            FreeLetterAward awardLetter awardPlayerId -> playerID == awardPlayerId && l == awardLetter
-            _ -> False
-        freeLetterEvent = Seq.filter isFreeLetterEvent (fromMaybe mempty events)
-        freeLetterPlayer = not (Seq.null freeLetterEvent)
     span_
         ( [class_ $ "tracking-widest" <> weight <> color]
-            <> [makeAttribute "_" "on FreeLetterAward from elsewhere add .grow" | freeLetterPlayer]
+            <> [makeAttribute "_" [st|on FreeLetterAward[playerID == '#{playerID}' and char == '#{l}'] from elsewhere add .grow wait for animationend then remove .grow|]]
         )
         $ toHtml l
 
