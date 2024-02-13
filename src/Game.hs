@@ -36,6 +36,7 @@ import GameStateEvent (GameStateEvent, GameStateEvents (..))
 import qualified GameStateEvent
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
+import qualified RIO.List as L
 import RIO.List.Partial ((!!))
 import System.Random (Random, StdGen, randomR)
 import WithPlayerApi (PlayerId (..))
@@ -178,9 +179,10 @@ genRandom r = #settings % #stdGen %%= randomR r
 
 pickNewGivenLetters :: (MonadState GameState m) => m ()
 pickNewGivenLetters = do
-    givenLettersSet <- use $ #settings % #givenLettersSet
-    i <- genRandom (0, length givenLettersSet - 1)
-    #givenLetters .= (givenLettersSet !! i, 0)
+    currentGivenLetters <- use $ #givenLetters % _1
+    allButCurrent <- use $ #settings % #givenLettersSet % to (L.delete currentGivenLetters)
+    i <- genRandom (0, length allButCurrent - 1)
+    #givenLetters .= (allButCurrent !! i, 0)
 
 awardFreeLetter ::
     (MonadState GameState m, MonadWriter GameStateEvents m) =>
