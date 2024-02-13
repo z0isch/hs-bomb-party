@@ -51,7 +51,7 @@ data Settings = Settings
 
 data GameState = GameState
     { players :: CircularZipper PlayerState
-    , givenLetters :: CaseInsensitiveText
+    , givenLetters :: (CaseInsensitiveText, Int)
     , alreadyUsedWords :: HashSet CaseInsensitiveText
     , settings :: Settings
     , round :: Natural
@@ -103,6 +103,7 @@ startGame s = case HashMap.toList (s ^. #players) of
                 ( GameState
                     { alreadyUsedWords = mempty
                     , round = 0
+                    , givenLetters = (givenLetters, 0)
                     , ..
                     }
                 , events
@@ -160,6 +161,9 @@ makeMove gs = (\x -> execRWS x () gs) . runMove
                 #lastUsedWord .= Nothing
             #players %= nextPlayer
             currentPlayerL % #lastUsedWord .= Nothing
+            timesLetersUsed <- #givenLetters % _2 <%= (+ 1)
+            givenLettersUsedTooManyTimes <- use $ #players % to ((<= timesLetersUsed) . length)
+            when givenLettersUsedTooManyTimes pickNewGivenLetters
             use (to isGameOver) >>= \case
                 False -> do
                     #round += 1
@@ -176,7 +180,7 @@ pickNewGivenLetters :: (MonadState GameState m) => m ()
 pickNewGivenLetters = do
     givenLettersSet <- use $ #settings % #givenLettersSet
     i <- genRandom (0, length givenLettersSet - 1)
-    #givenLetters .= givenLettersSet !! i
+    #givenLetters .= (givenLettersSet !! i, 0)
 
 awardFreeLetter ::
     (MonadState GameState m, MonadWriter GameStateEvents m) =>
@@ -211,7 +215,7 @@ isPlayerAlive ps = ps ^. #lives > 0
 
 isValidGuess :: GameState -> CaseInsensitiveText -> Bool
 isValidGuess gs g =
-    ((gs ^. #givenLetters) `CaseInsensitive.isInfixOf` g)
+    ((gs ^. #givenLetters % _1) `CaseInsensitive.isInfixOf` g)
         && not (g `HashSet.member` (gs ^. #alreadyUsedWords))
         && (g `HashSet.member` (gs ^. #settings % #validWords))
 

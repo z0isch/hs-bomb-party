@@ -130,7 +130,7 @@ gameStateUI me stateKey game events = div_
                         [ id_ "given-letters"
                         , class_ "text-2xl font-mono"
                         ]
-                    $ toHtml (gs ^. #givenLetters)
+                    $ toHtml (gs ^. #givenLetters % _1)
                 ul_
                     [ id_ "player-states"
                     , class_ "space-y-3"
