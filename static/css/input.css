@@ -54,3 +54,10 @@
  .grow {
     animation: grow .66s linear 0s 2;
   }
+
+  .glow{
+    border: 2px solid theme(colors.yellow.500);
+    outline: none;
+    border-color: theme(colors.yellow.500);
+    box-shadow: 0 0 10px theme(colors.yellow.500);
+  }

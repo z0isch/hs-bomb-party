@@ -29,7 +29,6 @@ import Lucid.Htmx
 import qualified RIO.ByteString.Lazy as BSL
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
-import qualified RIO.Seq as Seq
 import qualified RIO.Text as T
 import Text.Shakespeare.Text (st)
 import WithPlayerApi (PlayerId (..))
@@ -182,27 +181,60 @@ playerInputId :: PlayerId -> Text
 playerInputId playerId = "input-" <> UUID.toText (getPlayerId playerId)
 
 guessInput :: Text -> Bool -> PlayerId -> Html ()
-guessInput v enabled playerId = do
-    input_
-        ( [ id_ $ playerInputId playerId
-          , name_ "guess"
-          , class_
-                $ "border-2 caret-blue-900"
-                <> ( if enabled
-                        then ""
-                        else " bg-slate-300"
-                   )
-          , value_ v
-          , autocomplete_ "off"
-          , hxVals_ [st|{"tag":"Typing"}|]
-          , hxSwapOob_ "morph"
-          ]
-            <> [disabled_ "" | not enabled]
-            <> [autofocus_ | enabled]
-            <> [makeAttribute "ws-send" "" | enabled]
-            <> [hxTrigger_ "keyup changed delay:50ms" | enabled]
-            <> [makeAttribute "_" "on WrongGuess from elsewhere add .shake wait for animationend then remove .shake" | enabled]
-        )
+guessInput v enabled playerId = div_
+    [ id_ $ "guessInput-" <> UUID.toText (getPlayerId playerId)
+    , hxSwapOob_ "morph"
+    ]
+    $ do
+        when enabled $ do
+            let
+                updateLetterCount =
+                    [st|on keyup from ##{playerInputId playerId} or mutation of @value from ##{playerInputId playerId}
+                    put target.value.length into me
+                    if target.value.length > 0 
+                    then set @style to `width: ${Math.min(100,100 * (target.value.length / 11))}%`
+                    else set @style to 'display:none' 
+                    end
+                    if target.value.length is greater than 10
+                    then add .bg-yellow-500 
+                    else remove .bg-yellow-500 
+                    end
+                    |]
+            div_ [class_ "w-full bg-gray-200 rounded-full h-4 mb-1"]
+                $ div_
+                    [ class_ "bg-blue-600 h-4 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full"
+                    , makeAttribute "_" updateLetterCount
+                    , style_ "display:none"
+                    ]
+                    ""
+        let
+            glow =
+                [ [st|on keyup or mutation of @value
+                if target.value.length is greater than 10    
+                then add .glow 
+                else remove .glow end|]
+                ]
+            wrongGuessHandler = [[st|on WrongGuess from elsewhere add .shake wait for animationend then remove .shake end|] | enabled]
+        input_
+            ( [ id_ $ playerInputId playerId
+              , name_ "guess"
+              , class_
+                    $ "border-2 caret-blue-900"
+                    <> ( if enabled
+                            then ""
+                            else " bg-slate-300"
+                       )
+                    <> (if T.length v > 10 then " glow" else "")
+              , value_ v
+              , autocomplete_ "off"
+              , hxVals_ [st|{"tag":"Typing"}|]
+              , makeAttribute "_" $ T.unlines $ glow <> wrongGuessHandler
+              ]
+                <> [disabled_ "" | not enabled]
+                <> [autofocus_ | enabled]
+                <> [makeAttribute "ws-send" "" | enabled]
+                <> [hxTrigger_ "keyup changed delay:50ms" | enabled]
+            )
 
 letterUI :: PlayerState -> Html ()
 letterUI ps = for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')] $ \l -> do
