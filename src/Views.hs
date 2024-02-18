@@ -186,33 +186,37 @@ guessInput v enabled playerId = div_
     , hxSwapOob_ "morph"
     ]
     $ do
-        when enabled $ do
-            let
-                updateLetterCount =
-                    [st|on keyup from ##{playerInputId playerId} or mutation of @value from ##{playerInputId playerId}
-                    put target.value.length into me
-                    if target.value.length > 0 
+        let
+            percent = min 100 $ 100 * T.length v `div` 11
+            bgColor = if T.length v > 10 then "bg-yellow-500" else "bg-blue-600"
+            updateLetterCount =
+                [st|on keyup from ##{playerInputId playerId}
+                put target.value.length into me
+                if target.value.length > 0 
                     then set @style to `width: ${Math.min(100,100 * (target.value.length / 11))}%`
                     else set @style to 'display:none' 
-                    end
-                    if target.value.length is greater than 10
+                end
+                if target.value.length is greater than 10
                     then add .bg-yellow-500 
                     else remove .bg-yellow-500 
-                    end
-                    |]
-            div_ [class_ "w-full bg-gray-200 rounded-full h-4 mb-1"]
-                $ div_
-                    [ class_ "bg-blue-600 h-4 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full"
-                    , makeAttribute "_" updateLetterCount
-                    , style_ "display:none"
-                    ]
-                    ""
+                end
+                |]
+        div_ [class_ "w-full bg-gray-200 rounded-full h-4 mb-1"]
+            $ div_
+                [ class_ $ "h-4 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full " <> bgColor
+                , makeAttribute "_" updateLetterCount
+                , style_ $ if percent > 0 then [st|width:#{percent}%|] else "display:none"
+                ]
+            $ toHtml
+            $ show
+            $ T.length v
         let
             glow =
-                [ [st|on keyup or mutation of @value
-                if target.value.length is greater than 10    
-                then add .glow 
-                else remove .glow end|]
+                [ [st|on keyup
+                if target.value.length is greater than 10
+                    then add .glow 
+                    else remove .glow 
+                end|]
                 ]
             wrongGuessHandler = [[st|on WrongGuess from elsewhere add .shake wait for animationend then remove .shake end|] | enabled]
         input_
