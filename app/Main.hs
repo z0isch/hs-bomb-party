@@ -18,7 +18,8 @@ main = do
     wordsSet <- HashSet.fromList . fmap CaseInsensitiveText . T.lines <$> readFileUtf8 wordsFile
 
     givenLettersFile <- fromMaybe "histogram.csv" <$> lookupEnv "GIVEN_LETTERS_FILE"
-    givenLettersSet <- take 450 . fmap (CaseInsensitiveText . T.takeWhile (/= ',')) . T.lines <$> readFileUtf8 givenLettersFile
+    -- Have at least 100 words per given letter set
+    givenLettersSet <- take 2211 . fmap (CaseInsensitiveText . T.takeWhile (/= ',')) . T.lines <$> readFileUtf8 givenLettersFile
 
     staticDir <- fromMaybe "static" <$> lookupEnv "STATIC_DIR"
 
