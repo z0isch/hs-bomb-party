@@ -28,18 +28,20 @@ library
       App
       CaseInsensitive
       CircularZipper
+      Classic.AppGameState
+      Classic.Game
+      Classic.GameStateEvent
+      Classic.Handlers
+      Classic.Timer
+      Classic.Views
+      Classic.WsMsg
       CustomPrelude
       DevelMain
-      Game
-      GameStateEvent
-      Handlers
       OrphanInstances
       Server
-      Timer
-      Views
+      StateKey
       WithPlayerApi
       WordHelpers
-      WsMsg
   other-modules:
       Paths_hs_bomb_party
   autogen-modules:
