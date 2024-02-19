@@ -2,17 +2,15 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Views (gameStateUI, guessInput, sharedHead) where
+module Classic.Views (gameStateUI, guessInput, sharedHead) where
 
 import CustomPrelude
 
-import App (Game (..), StateKey)
 import CaseInsensitive (CaseInsensitiveChar (..), CaseInsensitiveText (..))
 import CircularZipper (CircularZipper (..))
 import qualified CircularZipper as CZ
-import qualified Data.Aeson as Aeson
-import qualified Data.UUID as UUID
-import Game (
+import Classic.AppGameState (AppGame (..))
+import Classic.Game (
     GameState (..),
     PlayerState (..),
     Settings (..),
@@ -21,7 +19,9 @@ import Game (
     isPlayerTurn,
     totalLettersL,
  )
-import GameStateEvent (GameStateEvent (..))
+import Classic.GameStateEvent (GameStateEvent (..))
+import qualified Data.Aeson as Aeson
+import qualified Data.UUID as UUID
 import Lucid hiding (for_)
 import qualified Lucid
 import Lucid.Base (makeAttribute)
@@ -30,6 +30,7 @@ import qualified RIO.ByteString.Lazy as BSL
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
 import qualified RIO.Text as T
+import StateKey (StateKey)
 import Text.Shakespeare.Text (st)
 import WithPlayerApi (PlayerId (..))
 
@@ -55,7 +56,7 @@ sharedHead mHotreload = head_ $ do
 gameStateUI ::
     PlayerId ->
     StateKey ->
-    Game ->
+    AppGame ->
     Maybe (Seq GameStateEvent) ->
     Html ()
 gameStateUI me stateKey game events = div_

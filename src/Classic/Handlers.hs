@@ -3,17 +3,17 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
-module Handlers (
+module Classic.Handlers (
     home,
     ws,
 ) where
 
 import CustomPrelude
 
-import App (App (..), AppGameState (..), AppGameStateChanMsg (..), AppM, Game (..), StateKey, _InGame)
+import App (App (..), AppM, ClassicApp (..))
 import qualified CircularZipper as CZ
-import qualified Data.Aeson as Aeson
-import Game (
+import Classic.AppGameState (AppGame (..), AppGameState (..), AppGameStateChanMsg (..), _InGame)
+import Classic.Game (
     GameState (..),
     Move (..),
     PlayerState (..),
@@ -22,7 +22,10 @@ import Game (
     makeMove,
     startGame,
  )
-import GameStateEvent (GameStateEvent (..), GameStateEvents (..), eventsForPlayer)
+import Classic.GameStateEvent (GameStateEvent (..), GameStateEvents (..), eventsForPlayer)
+import Classic.Timer (restartTimer, startTimer, stopTimer)
+import Classic.Views (gameStateUI, guessInput, sharedHead)
+import qualified Data.Aeson as Aeson
 import Lucid hiding (for_)
 import Lucid.Base (makeAttribute)
 import Lucid.Htmx
@@ -32,8 +35,7 @@ import qualified RIO.HashMap as HashMap
 import qualified RIO.Text.Lazy as TL
 import Servant
 import Servant.API.WebSocket (WebSocket)
-import Timer (restartTimer, startTimer, stopTimer)
-import Views (gameStateUI, guessInput, sharedHead)
+import StateKey (StateKey)
 import WithPlayerApi (PlayerId (..))
 import WsMsg
 
@@ -46,7 +48,7 @@ home ::
     AppM (Html ())
 home api mHotreload me = do
     a <- ask
-    appGameState <- liftIO $ readTVarIO $ a ^. #wsGameState
+    appGameState <- liftIO $ readTVarIO $ a ^. #classic % #wsGameState
     pure $ doctypehtml_ $ html_ $ do
         head_ $ sharedHead mHotreload
         body_
@@ -58,19 +60,19 @@ home api mHotreload me = do
                 ]
             $ gameStateUI me (appGameState ^. #stateKey) (appGameState ^. #game) Nothing
 
-updateGameState :: StateKey -> (Game -> (Game, GameStateEvents)) -> AppM Game
+updateGameState :: StateKey -> (AppGame -> (AppGame, GameStateEvents)) -> AppM AppGame
 updateGameState stateKey f = do
     a <- ask
     atomically $ do
-        appGameState <- readTVar $ a ^. #wsGameState
+        appGameState <- readTVar $ a ^. #classic % #wsGameState
         if (appGameState ^. #stateKey) == stateKey
             then do
                 let
                     (gs', events) = f $ appGameState ^. #game
                     stateKey' = stateKey + 1
                     appGameState' = appGameState{stateKey = stateKey', game = gs', events}
-                writeTVar (a ^. #wsGameState) appGameState'
-                gs' <$ writeTChan (a ^. #wsGameChan) AppGameStateChanged
+                writeTVar (a ^. #classic % #wsGameState) appGameState'
+                gs' <$ writeTChan (a ^. #classic % #wsGameChan) AppGameStateChanged
             else pure $ appGameState ^. #game
 
 handleWsMsg :: PlayerId -> TChan AppGameStateChanMsg -> WsMsg -> AppM ()
@@ -78,7 +80,7 @@ handleWsMsg me chan m = do
     a <- ask
     case m of
         TypingMsg msg -> atomically $ do
-            appGameState <- readTVar $ a ^. #wsGameState
+            appGameState <- readTVar $ a ^. #classic % #wsGameState
             when (msg ^. #stateKey == appGameState ^. #stateKey)
                 $ writeTChan chan
                 $ PlayerTyping (appGameState ^. #stateKey) me (msg ^. #contents % #guess)
@@ -150,7 +152,7 @@ ws ::
     AppM ()
 ws me c = do
     a <- ask
-    myChan <- atomically $ dupTChan (a ^. #wsGameChan)
+    myChan <- atomically $ dupTChan (a ^. #classic % #wsGameChan)
     let
         pingThread :: Int -> AppM ()
         pingThread i = do
@@ -170,7 +172,7 @@ ws me c = do
         sender :: AppM ()
         sender = do
             join $ atomically $ do
-                appGameState <- readTVar $ a ^. #wsGameState
+                appGameState <- readTVar $ a ^. #classic % #wsGameState
                 chanMsg <- readTChan myChan
                 pure $ case chanMsg of
                     AppGameStateChanged -> do

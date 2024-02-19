@@ -14,11 +14,11 @@ module WsMsg (
 
 import CustomPrelude hiding ((.=))
 
-import App (StateKey)
 import CaseInsensitive (CaseInsensitiveText)
 import Data.Aeson
 import Data.Aeson.Types (Parser)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
+import StateKey (StateKey)
 import WithPlayerApi (PlayerId)
 
 data WsMsg

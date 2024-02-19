@@ -2,9 +2,10 @@ module Main (main) where
 
 import CustomPrelude
 
-import App (App (..), AppGameState (..), Game (..))
+import App (App (..), ClassicApp (..))
 import CaseInsensitive (CaseInsensitiveText (..))
-import Game (initialSettings)
+import qualified Classic.AppGameState
+import qualified Classic.Game
 import Network.Wai.Handler.Warp
 import qualified RIO.HashSet as HashSet
 import qualified RIO.Text as T
@@ -27,11 +28,11 @@ main = do
 
     wsGameState <-
         newTVarIO
-            AppGameState
+            Classic.AppGameState.AppGameState
                 { stateKey = 0
                 , game =
-                    InLobby
-                        $ initialSettings
+                    Classic.AppGameState.InLobby
+                        $ Classic.Game.initialSettings
                             stdGen
                             wordsSet
                             givenLettersSet
@@ -41,6 +42,7 @@ main = do
 
     wsGameChan <- newBroadcastTChanIO
     wsGameStateTimer <- newTVarIO Nothing
+    let classic = ClassicApp{..}
 
     logOptions' <- logOptionsHandle stderr False
     let logOptions = setLogUseTime True logOptions'

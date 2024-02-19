@@ -1,4 +1,4 @@
-module GameStateEvent (GameStateEvents (..), GameStateEvent (..), eventsForPlayer) where
+module Classic.GameStateEvent (GameStateEvents (..), GameStateEvent (..), eventsForPlayer) where
 
 import CaseInsensitive (CaseInsensitiveChar)
 import CustomPrelude
@@ -45,4 +45,4 @@ toPair = \case
     GameOver -> ("GameOver", Aeson.Null)
     WrongGuess -> ("WrongGuess", Aeson.Null)
     CorrectGuess -> ("CorrectGuess", Aeson.Null)
-    FreeLetterAward c pID -> ("FreeLetterAward", Aeson.object [("char", toJSON c),("playerID", toJSON pID)])
+    FreeLetterAward c pID -> ("FreeLetterAward", Aeson.object [("char", toJSON c), ("playerID", toJSON pID)])

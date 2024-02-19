@@ -4,7 +4,7 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
-module Game (
+module Classic.Game (
     GameState (..),
     Settings (..),
     Move (..),
@@ -25,6 +25,8 @@ import CaseInsensitive (CaseInsensitiveChar (..), CaseInsensitiveText, caseInsen
 import qualified CaseInsensitive
 import CircularZipper (CircularZipper (..), currentL, findRight)
 import qualified CircularZipper as CZ
+import Classic.GameStateEvent (GameStateEvent, GameStateEvents (..))
+import qualified Classic.GameStateEvent as GameStateEvent
 import Control.Monad.RWS (
     MonadState,
     MonadWriter (..),
@@ -32,8 +34,6 @@ import Control.Monad.RWS (
     execRWS,
     get,
  )
-import GameStateEvent (GameStateEvent, GameStateEvents (..))
-import qualified GameStateEvent
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
 import qualified RIO.List as L

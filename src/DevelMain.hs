@@ -4,9 +4,10 @@ module DevelMain (update) where
 
 import CustomPrelude
 
-import App (App (..), AppGameState (..), Game (..))
+import App (App (..), ClassicApp (..))
+import qualified Classic.AppGameState
+import qualified Classic.Game
 import qualified Data.HashSet as HashSet
-import Game (initialSettings)
 import Lucid (Html, script_, src_)
 import Network.HTTP.Types (status400)
 import Network.Wai (responseLBS)
@@ -27,10 +28,10 @@ update =
 
         wsGameState <- createRef @Text r "wsGameState" $ do
             newTVarIO
-                $ AppGameState
+                $ Classic.AppGameState.AppGameState
                     { game =
-                        InLobby
-                            $ initialSettings
+                        Classic.AppGameState.InLobby
+                            $ Classic.Game.initialSettings
                                 (mkStdGen 0)
                                 (HashSet.fromList ["the", "quick", "brown", "fox", "friday"])
                                 ["fri", "day", "the", "quick", "brown", "fox"]
@@ -42,7 +43,7 @@ update =
         wsGameChan <- createRef @Text r "wsGameStateChan" newBroadcastTChanIO
 
         wsGameStateTimer <- createRef @Text r "wsGameStateTimer" $ newTVarIO Nothing
-
+        let classic = ClassicApp{..}
         start r "hotreload" $ run 8081 $ hotReloadServer reloadChan
 
         restart r "webserver" $ do

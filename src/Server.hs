@@ -8,8 +8,8 @@ module Server (app) where
 import CustomPrelude
 
 import App (App (..), AppM)
+import qualified Classic.Handlers
 import Control.Monad.Except (ExceptT (..))
-import qualified Handlers
 import Lucid hiding (for_)
 import OrphanInstances ()
 import Servant
@@ -47,8 +47,8 @@ totalApiServer a mHotReload =
 
 server :: Maybe (Html ()) -> PlayerId -> ServerT API AppM
 server mHotReload playerId =
-    Handlers.home api mHotReload playerId
-        :<|> Handlers.ws playerId
+    Classic.Handlers.home api mHotReload playerId
+        :<|> Classic.Handlers.ws playerId
 
 app :: App -> Maybe (Html ()) -> Application
 app a = serve totalApi . totalApiServer a
