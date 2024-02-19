@@ -2,7 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
-module WsMsg (
+module Classic.WsMsg (
     WsMsg (..),
     WsMsg' (..),
     TypingMsgContent (..),

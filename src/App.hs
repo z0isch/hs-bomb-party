@@ -17,6 +17,7 @@ data ClassicApp = ClassicApp
     , wsGameChan :: TChan Classic.AppGameState.AppGameStateChanMsg
     }
     deriving (Generic)
+
 data App = App
     { classic :: ClassicApp
     , logFunction :: LogFunc

@@ -25,6 +25,7 @@ import Classic.Game (
 import Classic.GameStateEvent (GameStateEvent (..), GameStateEvents (..), eventsForPlayer)
 import Classic.Timer (restartTimer, startTimer, stopTimer)
 import Classic.Views (gameStateUI, guessInput, sharedHead)
+import Classic.WsMsg
 import qualified Data.Aeson as Aeson
 import Lucid hiding (for_)
 import Lucid.Base (makeAttribute)
@@ -37,7 +38,6 @@ import Servant
 import Servant.API.WebSocket (WebSocket)
 import StateKey (StateKey)
 import WithPlayerApi (PlayerId (..))
-import WsMsg
 
 home ::
     ( IsElem ("ws" :> WebSocket) api
