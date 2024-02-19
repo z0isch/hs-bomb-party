@@ -140,7 +140,7 @@ handleWsMsg me chan m = do
                             Nothing -> pure (InGame gs, appGameState ^. #events)
                             Just (gs', events) -> do
                                 let
-                                    stateKey = (msg ^. #stateKey) + 1
+                                    stateKey = (appGameState ^. #stateKey) + 1
                                     appGameState' = appGameState{stateKey, game = InGame gs', events}
                                 writeTVar (a ^. #survival % #wsGameState) appGameState'
                                 (InGame gs', events) <$ writeTChan (a ^. #survival % #wsGameChan) AppGameStateChanged
