@@ -141,9 +141,15 @@ allPlayersHaveAnswered = getAll <$> gets (foldOf hasAnsweredFold)
   where
     hasAnsweredFold = #players % folded % #lastUsedWord % to (All . isJust)
 
-makeMove :: GameState -> Move -> (GameState, GameStateEvents)
-makeMove gs = (\x -> execRWS x () gs) . runMove
+makeMove :: GameState -> Move -> Maybe (GameState, GameStateEvents)
+makeMove gs mv
+    | validMove = (\x -> Just $ execRWS x () gs) $ runMove mv
+    | otherwise = Nothing
   where
+    validMove :: Bool
+    validMove
+        | isGameOver gs = False
+        | otherwise = True
     runMove :: Move -> RWS a GameStateEvents GameState ()
     runMove = \case
         Guess playerId guess

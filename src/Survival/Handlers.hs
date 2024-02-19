@@ -132,10 +132,20 @@ handleWsMsg me chan m = do
                     )
                 x -> (x, mempty)
         GuessMsg msg -> do
-            -- TODO: This will block a potentially valid guess if multiple come in at once!
-            (gs, events) <- updateGameState (msg ^. #stateKey) $ \case
-                InGame gs -> let (gs', events) = makeMove gs $ Guess me $ msg ^. #contents % #guess in (InGame gs', events)
-                x -> (x, mempty)
+            (gs, events) <- atomically $ do
+                appGameState <- readTVar $ a ^. #survival % #wsGameState
+                case appGameState ^. #game of
+                    InGame gs -> do
+                        case makeMove gs $ Guess me $ msg ^. #contents % #guess of
+                            Nothing -> pure (InGame gs, appGameState ^. #events)
+                            Just (gs', events) -> do
+                                let
+                                    stateKey = (msg ^. #stateKey) + 1
+                                    appGameState' = appGameState{stateKey, game = InGame gs', events}
+                                writeTVar (a ^. #survival % #wsGameState) appGameState'
+                                (InGame gs', events) <$ writeTChan (a ^. #survival % #wsGameChan) AppGameStateChanged
+                    x -> pure (x, mempty)
+
             forOf_ _InGame gs $ \gsS -> do
                 -- It's a new round
                 when (isJust $ S.elemIndexL MyTurn =<< eventsForPlayer me events)

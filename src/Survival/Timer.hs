@@ -27,16 +27,18 @@ startTimer a = do
         join $ atomically $ do
             appGameState <- readTVar $ a ^. #survival % #wsGameState
             case appGameState ^. #game of
-                (InGame gss) -> do
-                    let (gs', events) = makeMove gss TimeUp
-                        appGameState' =
-                            appGameState
-                                & (#game .~ InGame gs')
-                                & (#stateKey %~ (+ 1))
-                                & (#events .~ events)
-                    writeTVar (a ^. #survival % #wsGameState) appGameState'
-                    writeTChan (a ^. #survival % #wsGameChan) AppGameStateChanged
-                    pure $ unless (isGameOver gs') go
+                (InGame gss) -> case makeMove gss TimeUp of
+                    Just (gs', events) -> do
+                        let
+                            appGameState' =
+                                appGameState
+                                    & (#game .~ InGame gs')
+                                    & (#stateKey %~ (+ 1))
+                                    & (#events .~ events)
+                        writeTVar (a ^. #survival % #wsGameState) appGameState'
+                        writeTChan (a ^. #survival % #wsGameChan) AppGameStateChanged
+                        pure $ unless (isGameOver gs') go
+                    Nothing -> pure $ pure ()
                 _ -> pure $ pure ()
 
 stopTimer :: (MonadIO m) => App -> m ()
