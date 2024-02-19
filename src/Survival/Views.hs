@@ -2,24 +2,11 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Classic.Views (gameStateUI, guessInput, sharedHead) where
+module Survival.Views (gameStateUI, guessInput, sharedHead) where
 
 import CustomPrelude
 
 import CaseInsensitive (CaseInsensitiveChar (..), CaseInsensitiveText (..))
-import CircularZipper (CircularZipper (..))
-import qualified CircularZipper as CZ
-import Classic.AppGameState (AppGame (..))
-import Classic.Game (
-    GameState (..),
-    PlayerState (..),
-    Settings (..),
-    isGameOver,
-    isPlayerAlive,
-    isPlayerTurn,
-    totalLettersL,
- )
-import Classic.GameStateEvent (GameStateEvent (..))
 import qualified Data.Aeson as Aeson
 import qualified Data.UUID as UUID
 import Lucid hiding (for_)
@@ -31,6 +18,17 @@ import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
 import qualified RIO.Text as T
 import StateKey (StateKey)
+import Survival.AppGameState (AppGame (..))
+import Survival.Game (
+    GameState (..),
+    PlayerState (..),
+    Settings (..),
+    isGameOver,
+    isPlayerActive,
+    isPlayerAlive,
+    totalLettersL,
+ )
+import Survival.GameStateEvent (GameStateEvent (..))
 import Text.Shakespeare.Text (st)
 import WithPlayerApi (PlayerId (..))
 
@@ -49,7 +47,7 @@ sharedHead mHotreload = head_ $ do
     script_ [src_ "https://unpkg.com/hyperscript.org@0.9.12"] ("" :: String)
     script_ [src_ "https://unpkg.com/htmx.org/dist/ext/ws.js"] ("" :: String)
     script_ [src_ "https://unpkg.com/idiomorph/dist/idiomorph-ext.min.js"] ("" :: String)
-    script_ [src_ "/static/js/classic/index.js"] ("" :: String)
+    script_ [src_ "/static/js/survival/index.js"] ("" :: String)
     title_ "BombParty"
     sequenceA_ mHotreload
 
@@ -130,7 +128,7 @@ gameStateUI me stateKey game events = div_
                         [ id_ "given-letters"
                         , class_ "text-2xl font-mono"
                         ]
-                    $ toHtml (gs ^. #givenLetters % _1)
+                    $ toHtml (gs ^. #givenLetters)
                 ul_
                     [ id_ "player-states"
                     , class_ "space-y-3"
@@ -165,12 +163,12 @@ playerStateUI me gs ps = do
                                 $ do
                                     guessInput
                                         (maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord)
-                                        (ps ^. #id == me && isPlayerTurn (gs ^. #players) ps)
+                                        (ps ^. #id == me && isPlayerActive gs (ps ^. #id))
                                         (ps ^. #id)
                 else h1_ [class_ "text-center text-2xl"] "☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️"
   where
     outline =
-        if isPlayerTurn (gs ^. #players) ps
+        if isPlayerActive gs (ps ^. #id) && me == (ps ^. #id)
             then if isGameOver gs then "bg-emerald-600" else "border-4 border-blue-700"
             else "border-2"
     bg =
@@ -254,7 +252,5 @@ letterUI ps = for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')] $ \l
         )
         $ toHtml l
 
-playerFirst :: PlayerId -> CircularZipper PlayerState -> [PlayerState]
-playerFirst pId cz = CZ.current playerCurrent : CZ.rights playerCurrent <> CZ.lefts playerCurrent
-  where
-    playerCurrent = fromMaybe cz $ CZ.findRight ((== pId) . view #id) cz
+playerFirst :: PlayerId -> HashMap PlayerId PlayerState -> [PlayerState]
+playerFirst pId players = catMaybes $ players ^? ix pId : (Just <$> HashMap.elems (HashMap.delete pId players))

@@ -2,7 +2,7 @@ module Main (main) where
 
 import CustomPrelude
 
-import App (App (..), ClassicApp (..))
+import App (App (..), ClassicApp (..), SurvivalApp (..))
 import CaseInsensitive (CaseInsensitiveText (..))
 import qualified Classic.AppGameState
 import qualified Classic.Game
@@ -10,6 +10,8 @@ import Network.Wai.Handler.Warp
 import qualified RIO.HashSet as HashSet
 import qualified RIO.Text as T
 import Server (app)
+import qualified Survival.AppGameState
+import qualified Survival.Game
 import System.Environment (lookupEnv)
 import System.Random (newStdGen)
 
@@ -43,6 +45,26 @@ main = do
     wsGameChan <- newBroadcastTChanIO
     wsGameStateTimer <- newTVarIO Nothing
     let classic = ClassicApp{..}
+
+    stdGen <- newStdGen
+
+    wsGameState <-
+        newTVarIO
+            Survival.AppGameState.AppGameState
+                { stateKey = 0
+                , game =
+                    Survival.AppGameState.InLobby
+                        $ Survival.Game.initialSettings
+                            stdGen
+                            wordsSet
+                            givenLettersSet
+                , events = mempty
+                , ..
+                }
+
+    wsGameChan <- newBroadcastTChanIO
+    wsGameStateTimer <- newTVarIO Nothing
+    let survival = SurvivalApp{..}
 
     logOptions' <- logOptionsHandle stderr False
     let logOptions = setLogUseTime True logOptions'

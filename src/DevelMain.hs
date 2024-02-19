@@ -4,7 +4,7 @@ module DevelMain (update) where
 
 import CustomPrelude
 
-import App (App (..), ClassicApp (..))
+import App (App (..), ClassicApp (..), SurvivalApp (..))
 import qualified Classic.AppGameState
 import qualified Classic.Game
 import qualified Data.HashSet as HashSet
@@ -18,6 +18,8 @@ import RIO.File (withBinaryFileDurable)
 import Rapid (createRef, rapid, restart, start)
 import Servant.Server
 import Server (app)
+import qualified Survival.AppGameState
+import qualified Survival.Game
 import System.Random (mkStdGen)
 import Text.Shakespeare.Text (st)
 
@@ -26,7 +28,7 @@ update =
     rapid 0 $ \r -> do
         reloadChan <- createRef @Text r "reloadChan" newChan
 
-        wsGameState <- createRef @Text r "wsGameState" $ do
+        wsGameState <- createRef @Text r "classic.wsGameState" $ do
             newTVarIO
                 $ Classic.AppGameState.AppGameState
                     { game =
@@ -40,10 +42,30 @@ update =
                     , ..
                     }
 
-        wsGameChan <- createRef @Text r "wsGameStateChan" newBroadcastTChanIO
+        wsGameChan <- createRef @Text r "classic.wsGameStateChan" newBroadcastTChanIO
 
-        wsGameStateTimer <- createRef @Text r "wsGameStateTimer" $ newTVarIO Nothing
+        wsGameStateTimer <- createRef @Text r "classic.wsGameStateTimer" $ newTVarIO Nothing
         let classic = ClassicApp{..}
+
+        wsGameState <- createRef @Text r "survival.wsGameState" $ do
+            newTVarIO
+                $ Survival.AppGameState.AppGameState
+                    { game =
+                        Survival.AppGameState.InLobby
+                            $ Survival.Game.initialSettings
+                                (mkStdGen 0)
+                                (HashSet.fromList ["the", "thely", "quick", "quickly", "brown", "brownly", "fox", "foxly", "friday", "fridayly"])
+                                ["fri", "day", "the", "quick", "brown", "fox"]
+                    , stateKey = 0
+                    , events = mempty
+                    , ..
+                    }
+
+        wsGameChan <- createRef @Text r "survival.wsGameStateChan" newBroadcastTChanIO
+
+        wsGameStateTimer <- createRef @Text r "survival.wsGameStateTimer" $ newTVarIO Nothing
+        let survival = SurvivalApp{..}
+
         start r "hotreload" $ run 8081 $ hotReloadServer reloadChan
 
         restart r "webserver" $ do

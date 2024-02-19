@@ -40,6 +40,13 @@ library
       OrphanInstances
       Server
       StateKey
+      Survival.AppGameState
+      Survival.Game
+      Survival.GameStateEvent
+      Survival.Handlers
+      Survival.Timer
+      Survival.Views
+      Survival.WsMsg
       WithPlayerApi
       WordHelpers
   other-modules:
