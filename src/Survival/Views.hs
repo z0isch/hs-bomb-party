@@ -57,84 +57,88 @@ gameStateUI ::
     AppGame ->
     Maybe (Seq GameStateEvent) ->
     Html ()
-gameStateUI me stateKey game events = div_
-    [ id_ "gameState"
-    , makeAttribute "data-state-key" (tshow stateKey)
-    , makeAttribute "data-game-state-events" (decodeUtf8Lenient $ BSL.toStrict $ Aeson.encode events)
-    , hxSwapOob_ "morph"
-    ]
-    $ do
-        case game of
-            InLobby settings -> do
-                h1_ "Settings"
-                div_ $ do
-                    label_ [Lucid.for_ "secondsToGuess"] "Seconds per guess"
-                    input_
-                        [ id_ "secondsToGuess"
-                        , name_ "secondsToGuess"
-                        , class_ "border-2 caret-blue-900"
-                        , autocomplete_ "off"
-                        , type_ "number"
-                        , value_ $ tshow $ settings ^. #secondsToGuess
-                        , makeAttribute "ws-send" ""
-                        , hxVals_ [st|{"tag":"Settings"}|]
-                        ]
-                h1_ "Players"
-                ul_ $ for_ (HashMap.toList $ settings ^. #players) $ \(pId, mName) -> li_ $ do
+gameStateUI me stateKey game events =
+    div_
+        [ id_ "gameState"
+        , makeAttribute "data-state-key" (tshow stateKey)
+        , makeAttribute "data-game-state-events" (decodeUtf8Lenient $ BSL.toStrict $ Aeson.encode events)
+        , hxSwapOob_ "morph"
+        ]
+        $ do
+            case game of
+                InLobby settings -> do
+                    h1_ [class_ "text-4xl"] "Survival"
+                    a_ [class_ "text-sm text-blue-600 underline", href_ "/"] "Classic"
+                    hr_ [class_ "my-3 h-0.5 border-t-0 bg-neutral-100 opacity-100"]
+                    h2_ [class_ "text-2xl"] "Settings"
+                    div_ $ do
+                        label_ [Lucid.for_ "secondsToGuess"] "Seconds per guess"
+                        input_
+                            [ id_ "secondsToGuess"
+                            , name_ "secondsToGuess"
+                            , class_ "border-2 caret-blue-900"
+                            , autocomplete_ "off"
+                            , type_ "number"
+                            , value_ $ tshow $ settings ^. #secondsToGuess
+                            , makeAttribute "ws-send" ""
+                            , hxVals_ [st|{"tag":"Settings"}|]
+                            ]
+                    h2_ [class_ "text-2xl"] "Players"
+                    ul_ $ for_ (HashMap.toList $ settings ^. #players) $ \(pId, mName) -> li_ $ do
+                        button_
+                            [ type_ "button"
+                            , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
+                            , makeAttribute "ws-send" ""
+                            , hxVals_ [st|{"tag":"Leave", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
+                            ]
+                            "x"
+                        let isMe = pId == me
+                        input_
+                            $ [ class_ $ "w-1/3 border-2 caret-blue-900" <> (if isMe then "" else " bg-slate-300")
+                              , name_ "name"
+                              , value_ $ fromMaybe (T.pack $ show $ getPlayerId pId) mName
+                              , makeAttribute "ws-send" ""
+                              , hxVals_ [st|{"tag":"Name", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
+                              , autocomplete_ "off"
+                              ]
+                            <> [disabled_ "" | not isMe]
+                    unless (me `HashMap.member` (settings ^. #players))
+                        $ button_
+                            [ type_ "button"
+                            , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
+                            , makeAttribute "ws-send" ""
+                            , hxVals_ [st|{"tag":"Join"}|]
+                            ]
+                            "Join Game"
+                    unless (null $ settings ^. #players)
+                        $ button_
+                            [ type_ "button"
+                            , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
+                            , makeAttribute "ws-send" ""
+                            , hxVals_ [st|{"tag":"Start"}|]
+                            ]
+                            "Start Game"
+                InGame gs -> do
                     button_
                         [ type_ "button"
                         , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
+                        , tabindex_ "-1"
                         , makeAttribute "ws-send" ""
-                        , hxVals_ [st|{"tag":"Leave", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
+                        , hxVals_ [st|{"tag":"StartOver"}|]
                         ]
-                        "x"
-                    let isMe = pId == me
-                    input_
-                        $ [ class_ $ "w-1/3 border-2 caret-blue-900" <> (if isMe then "" else " bg-slate-300")
-                          , name_ "name"
-                          , value_ $ fromMaybe (T.pack $ show $ getPlayerId pId) mName
-                          , makeAttribute "ws-send" ""
-                          , hxVals_ [st|{"tag":"Name", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
-                          , autocomplete_ "off"
-                          ]
-                        <> [disabled_ "" | not isMe]
-                unless (me `HashMap.member` (settings ^. #players))
-                    $ button_
-                        [ type_ "button"
-                        , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
-                        , makeAttribute "ws-send" ""
-                        , hxVals_ [st|{"tag":"Join"}|]
+                        "Start A New Game"
+                    unless (isGameOver gs)
+                        $ div_
+                            [ id_ "given-letters"
+                            , class_ "text-2xl font-mono"
+                            ]
+                        $ toHtml (gs ^. #givenLetters)
+                    ul_
+                        [ id_ "player-states"
+                        , class_ "space-y-3"
                         ]
-                        "Join Game"
-                unless (null $ settings ^. #players)
-                    $ button_
-                        [ type_ "button"
-                        , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
-                        , makeAttribute "ws-send" ""
-                        , hxVals_ [st|{"tag":"Start"}|]
-                        ]
-                        "Start Game"
-            InGame gs -> do
-                button_
-                    [ type_ "button"
-                    , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
-                    , tabindex_ "-1"
-                    , makeAttribute "ws-send" ""
-                    , hxVals_ [st|{"tag":"StartOver"}|]
-                    ]
-                    "Start A New Game"
-                unless (isGameOver gs)
-                    $ div_
-                        [ id_ "given-letters"
-                        , class_ "text-2xl font-mono"
-                        ]
-                    $ toHtml (gs ^. #givenLetters)
-                ul_
-                    [ id_ "player-states"
-                    , class_ "space-y-3"
-                    ]
-                    $ do
-                        traverse_ (playerStateUI me gs) $ playerFirst me $ gs ^. #players
+                        $ do
+                            traverse_ (playerStateUI me gs) $ playerFirst me $ gs ^. #players
 
 playerStateUI ::
     PlayerId ->
