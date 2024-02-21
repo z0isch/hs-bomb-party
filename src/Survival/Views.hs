@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Survival.Views (gameStateUI, guessInput, sharedHead) where
+module Survival.Views (gameStateUI, playerStateUI, guessInput, sharedHead) where
 
 import CustomPrelude
 
@@ -137,18 +137,21 @@ gameStateUI me stateKey game events =
                         [ id_ "player-states"
                         , class_ "space-y-3"
                         ]
-                        $ do
-                            traverse_ (playerStateUI me gs) $ playerFirst me $ gs ^. #players
+                        $ for_ (playerFirst me $ gs ^. #players)
+                        $ \ps -> playerStateUI me gs events ps $ maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord
 
 playerStateUI ::
     PlayerId ->
     GameState ->
+    Maybe (Seq GameStateEvent) ->
     PlayerState ->
+    Text ->
     Html ()
-playerStateUI me gs ps = do
+playerStateUI me gs events ps v = do
     li_
-        [ id_ $ "player-state-" <> UUID.toText (getPlayerId me)
+        [ id_ $ "player-state-" <> UUID.toText (getPlayerId $ ps ^. #id)
         , class_ $ "p-2 rounded-lg " <> bg <> " " <> outline
+        , makeAttribute "data-game-state-events" (decodeUtf8Lenient $ BSL.toStrict $ Aeson.encode events)
         ]
         $ do
             h1_ $ maybe (toHtml $ T.pack $ show $ getPlayerId $ ps ^. #id) toHtml $ ps ^. #name
@@ -166,7 +169,7 @@ playerStateUI me gs ps = do
                                 ]
                                 $ do
                                     guessInput
-                                        (maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord)
+                                        v
                                         (ps ^. #id == me && isPlayerActive gs (ps ^. #id))
                                         (ps ^. #id)
                 else h1_ [class_ "text-center text-2xl"] "☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️"
@@ -177,7 +180,10 @@ playerStateUI me gs ps = do
             else "border-2"
     bg =
         if isPlayerAlive ps
-            then if isGameOver gs then "bg-green-600" else ""
+            then
+                if isGameOver gs
+                    then "bg-green-600"
+                    else if isJust $ ps ^. #lastUsedWord then "bg-green-100" else ""
             else "bg-red-600"
 
 playerInputId :: PlayerId -> Text

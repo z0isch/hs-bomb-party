@@ -7,6 +7,7 @@ module Survival.AppGameState (AppGame (..), AppGameState (..), AppGameStateChanM
 
 import CustomPrelude
 
+import CaseInsensitive (CaseInsensitiveText)
 import Optics.TH (makePrisms)
 import StateKey (StateKey)
 import Survival.Game (GameState, Settings)
@@ -20,6 +21,8 @@ makePrisms ''AppGame
 data AppGameStateChanMsg
     = AppGameStateChanged
     | PlayerTyping StateKey PlayerId Text
+    | PlayerGuessedCorrectly StateKey PlayerId CaseInsensitiveText
+    | PlayerGuessedWrong StateKey PlayerId
 
 data AppGameState = AppGameState
     { stateKey :: StateKey

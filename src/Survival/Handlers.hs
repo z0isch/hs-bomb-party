@@ -11,6 +11,7 @@ module Survival.Handlers (
 import CustomPrelude
 
 import App (App (..), AppM, SurvivalApp (..))
+import CaseInsensitive (CaseInsensitiveText (..))
 import qualified Data.Aeson as Aeson
 import Lucid hiding (for_)
 import Lucid.Base (makeAttribute)
@@ -33,9 +34,9 @@ import Survival.Game (
     makeMove,
     startGame,
  )
-import Survival.GameStateEvent (GameStateEvent (..), GameStateEvents (..), eventsForPlayer)
+import Survival.GameStateEvent (GameStateEvent (..), GameStateEvents (..), eventsForPlayer, isNextRound, _CorrectGuess, _WrongGuess)
 import Survival.Timer (restartTimer, startTimer, stopTimer)
-import Survival.Views (gameStateUI, guessInput, sharedHead)
+import Survival.Views (gameStateUI, guessInput, playerStateUI, sharedHead)
 import Survival.WsMsg
 import WithPlayerApi (PlayerId (..))
 
@@ -134,16 +135,37 @@ handleWsMsg me chan m = do
         GuessMsg msg -> do
             (gs, events) <- atomically $ do
                 appGameState <- readTVar $ a ^. #survival % #wsGameState
+                let guess = msg ^. #contents % #guess
                 case appGameState ^. #game of
                     InGame gs -> do
-                        case makeMove gs $ Guess me $ msg ^. #contents % #guess of
+                        case makeMove gs $ Guess me guess of
                             Nothing -> pure (InGame gs, appGameState ^. #events)
-                            Just (gs', events) -> do
-                                let
-                                    stateKey = (appGameState ^. #stateKey) + 1
-                                    appGameState' = appGameState{stateKey, game = InGame gs', events}
-                                writeTVar (a ^. #survival % #wsGameState) appGameState'
-                                (InGame gs', events) <$ writeTChan (a ^. #survival % #wsGameChan) AppGameStateChanged
+                            Just (gs', events)
+                                | isNextRound events -> do
+                                    writeTVar (a ^. #survival % #wsGameState)
+                                        $ appGameState
+                                            { stateKey = (appGameState ^. #stateKey) + 1
+                                            , game = InGame gs'
+                                            , events
+                                            }
+                                    (InGame gs', events) <$ writeTChan (a ^. #survival % #wsGameChan) AppGameStateChanged
+                                | otherwise -> do
+                                    writeTVar (a ^. #survival % #wsGameState)
+                                        $ appGameState
+                                            { stateKey = appGameState ^. #stateKey
+                                            , game = InGame gs'
+                                            , events
+                                            }
+                                    (InGame gs', events) <$ case eventsForPlayer me events of
+                                        Nothing -> pure ()
+                                        Just evs
+                                            | any (has _CorrectGuess) evs ->
+                                                writeTChan (a ^. #survival % #wsGameChan)
+                                                    $ PlayerGuessedCorrectly (appGameState ^. #stateKey) me guess
+                                            | any (has _WrongGuess) evs ->
+                                                writeTChan (a ^. #survival % #wsGameChan)
+                                                    $ PlayerGuessedWrong (appGameState ^. #stateKey) me
+                                            | otherwise -> pure ()
                     x -> pure (x, mempty)
 
             forOf_ _InGame gs $ \gsS -> do
@@ -184,6 +206,9 @@ ws me c = do
         sender = do
             join $ atomically $ do
                 appGameState <- readTVar $ a ^. #survival % #wsGameState
+                let
+                    mGameState = appGameState ^? #game % _InGame
+                    psFor pId = appGameState ^? #game % _InGame % #players % ix pId
                 chanMsg <- readTChan myChan
                 pure $ case chanMsg of
                     AppGameStateChanged -> do
@@ -191,6 +216,18 @@ ws me c = do
                         sendHtmlMsg c
                             $ gameStateUI me (appGameState ^. #stateKey) (appGameState ^. #game)
                             $ eventsForPlayer me (appGameState ^. #events)
+                    PlayerGuessedCorrectly stateKey guesser guess -> case (mGameState, psFor guesser) of
+                        (Just gameState, Just guesserState) -> do
+                            when (stateKey == (appGameState ^. #stateKey))
+                                $ sendHtmlMsg c
+                                $ playerStateUI me gameState (eventsForPlayer me (appGameState ^. #events)) guesserState (getCaseInsensitiveText guess)
+                        _ -> pure ()
+                    PlayerGuessedWrong stateKey guesser -> case (mGameState, psFor guesser) of
+                        (Just gameState, Just guesserState) -> do
+                            when (stateKey == (appGameState ^. #stateKey))
+                                $ sendHtmlMsg c
+                                $ playerStateUI me gameState (eventsForPlayer me (appGameState ^. #events)) guesserState ""
+                        _ -> pure ()
                     PlayerTyping stateKey typer guess -> do
                         when (stateKey == (appGameState ^. #stateKey) && typer /= me)
                             $ sendHtmlMsg c
