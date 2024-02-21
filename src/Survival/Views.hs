@@ -140,6 +140,9 @@ gameStateUI me stateKey game events =
                         $ for_ (playerFirst me $ gs ^. #players)
                         $ \ps -> playerStateUI me gs events ps $ maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord
 
+classNames :: [Text] -> Attribute
+classNames = class_ . T.intercalate " "
+
 playerStateUI ::
     PlayerId ->
     GameState ->
@@ -150,41 +153,37 @@ playerStateUI ::
 playerStateUI me gs events ps v = do
     li_
         [ id_ $ "player-state-" <> UUID.toText (getPlayerId $ ps ^. #id)
-        , class_ $ "p-2 rounded-lg " <> bg <> " " <> outline
+        , classNames ["p-2 rounded-lg border-2", bg, border]
         , makeAttribute "data-game-state-events" (decodeUtf8Lenient $ BSL.toStrict $ Aeson.encode events)
         ]
         $ do
             h1_ $ maybe (toHtml $ T.pack $ show $ getPlayerId $ ps ^. #id) toHtml $ ps ^. #name
-            if isPlayerAlive ps
+            if isGameOver gs
                 then
-                    if isGameOver gs
+                    if isPlayerAlive ps
                         then h1_ [class_ "text-center text-2xl"] "✨✨✨✨✨WINNER✨✨✨✨✨"
-                        else do
-                            letterUI ps
-                            div_ [id_ $ "player-state-lives-" <> UUID.toText (getPlayerId me)] $ replicateM_ (ps ^. #lives) $ toHtml ("❤️" :: String)
-                            form_
-                                [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
-                                , makeAttribute "ws-send" ""
-                                , hxVals_ [st|{"tag":"Guess"}|]
-                                ]
-                                $ do
-                                    guessInput
-                                        v
-                                        (ps ^. #id == me && isPlayerActive gs (ps ^. #id))
-                                        (ps ^. #id)
-                else h1_ [class_ "text-center text-2xl"] "☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️"
+                        else h1_ [class_ "text-center text-2xl"] "☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️"
+                else do
+                    letterUI ps
+                    div_ [id_ $ "player-state-lives-" <> UUID.toText (getPlayerId me)] $ replicateM_ (ps ^. #lives) $ toHtml ("❤️" :: String)
+                    form_
+                        [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
+                        , makeAttribute "ws-send" ""
+                        , hxVals_ [st|{"tag":"Guess"}|]
+                        ]
+                        $ do
+                            guessInput
+                                v
+                                (ps ^. #id == me && isPlayerActive gs (ps ^. #id))
+                                (ps ^. #id)
   where
-    outline =
-        if isPlayerActive gs (ps ^. #id) && me == (ps ^. #id)
-            then if isGameOver gs then "bg-emerald-600" else "border-4 border-blue-700"
-            else "border-2"
-    bg =
-        if isPlayerAlive ps
-            then
-                if isGameOver gs
-                    then "bg-green-600"
-                    else if isJust $ ps ^. #lastUsedWord then "bg-green-100" else ""
-            else "bg-red-600"
+    border
+        | T.null bg && ps ^. #id == me = "border-blue-500"
+        | otherwise = ""
+    bg
+        | isGameOver gs = if isPlayerAlive ps then "bg-green-600" else "bg-red-600"
+        | isPlayerAlive ps = if isJust $ ps ^. #lastUsedWord then "bg-green-100" else ""
+        | otherwise = "bg-red-100"
 
 playerInputId :: PlayerId -> Text
 playerInputId playerId = "input-" <> UUID.toText (getPlayerId playerId)

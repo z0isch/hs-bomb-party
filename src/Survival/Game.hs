@@ -179,7 +179,7 @@ makeMove gs mv
                 whenM (use $ #lastUsedWord % to isNothing) $ do
                     playerId <- use #id
                     tell $ GameStateEvent.singletonEvent playerId GameStateEvent.TimeUp
-                    #lives -= 1
+                    #lives %= \l -> if l > 0 then l - 1 else l
             use (to isGameOver) >>= \case
                 False -> do
                     pickNewGivenLetters
