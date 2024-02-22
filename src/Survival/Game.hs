@@ -47,6 +47,7 @@ data Settings = Settings
     , stdGen :: StdGen
     , players :: HashMap PlayerId (Maybe Text)
     , secondsToGuess :: Int
+    , freeLetterAwardLength :: Int
     }
     deriving (Show, Generic)
 
@@ -92,6 +93,7 @@ initialSettings stdGen validWords givenLettersSet =
     Settings
         { players = mempty
         , secondsToGuess = 7
+        , freeLetterAwardLength = 11
         , ..
         }
 
@@ -155,7 +157,7 @@ makeMove gs mv
         Guess playerId guess
             | isValidGuess gs guess -> do
                 tellPlayer playerId GameStateEvent.CorrectGuess
-                when (CaseInsensitive.length guess >= 11) $ awardFreeLetter playerId guess
+                when (CaseInsensitive.length guess >= gs ^. #settings % #freeLetterAwardLength) $ awardFreeLetter playerId guess
                 void $ zoomMaybe (#players % ix playerId) $ do
                     #wordsUsedStack %= (guess :)
                     #lastUsedWord .= Just guess

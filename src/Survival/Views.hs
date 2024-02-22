@@ -71,18 +71,33 @@ gameStateUI me stateKey game events =
                     a_ [class_ "text-sm text-blue-600 underline", href_ "/"] "Classic"
                     hr_ [class_ "my-3 h-0.5 border-t-0 bg-neutral-100 opacity-100"]
                     h2_ [class_ "text-2xl"] "Settings"
-                    div_ $ do
-                        label_ [Lucid.for_ "secondsToGuess"] "Seconds per guess"
-                        input_
-                            [ id_ "secondsToGuess"
-                            , name_ "secondsToGuess"
-                            , class_ "border-2 caret-blue-900"
-                            , autocomplete_ "off"
-                            , type_ "number"
-                            , value_ $ tshow $ settings ^. #secondsToGuess
-                            , makeAttribute "ws-send" ""
-                            , hxVals_ [st|{"tag":"Settings"}|]
-                            ]
+                    form_
+                        [ makeAttribute "ws-send" ""
+                        , hxVals_ [st|{"tag":"Settings"}|]
+                        , hxTrigger_ "change"
+                        ]
+                        $ do
+                            label_ [Lucid.for_ "secondsToGuess"] "Seconds per guess"
+                            input_
+                                [ id_ "secondsToGuess"
+                                , name_ "secondsToGuess"
+                                , class_ "border-2 caret-blue-900"
+                                , autocomplete_ "off"
+                                , type_ "number"
+                                , min_ "1"
+                                , value_ $ tshow $ settings ^. #secondsToGuess
+                                ]
+                            br_ []
+                            label_ [Lucid.for_ "secondsToGuess"] "Free Letter Award Length"
+                            input_
+                                [ id_ "freeLetterAwardLength"
+                                , name_ "freeLetterAwardLength"
+                                , class_ "border-2 caret-blue-900"
+                                , autocomplete_ "off"
+                                , type_ "number"
+                                , min_ "1"
+                                , value_ $ tshow $ settings ^. #freeLetterAwardLength
+                                ]
                     h2_ [class_ "text-2xl"] "Players"
                     ul_ $ for_ (HashMap.toList $ settings ^. #players) $ \(pId, mName) -> li_ $ do
                         button_

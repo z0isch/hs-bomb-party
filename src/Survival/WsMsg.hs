@@ -65,8 +65,9 @@ newtype TypingMsgContent = TypingMsgContent
     deriving stock (Show, Generic)
     deriving anyclass (FromJSON)
 
-newtype SettingsMsgContent = SettingsMsgContent
+data SettingsMsgContent = SettingsMsgContent
     { secondsToGuess :: Int
+    , freeLetterAwardLength :: Int
     }
     deriving stock (Show, Generic)
 
@@ -76,6 +77,7 @@ stringIntP = maybe (fail "Not an Int") pure . readMaybe @Int
 instance FromJSON SettingsMsgContent where
     parseJSON = withObject "SettingsMsgContent" $ \v -> do
         secondsToGuess <- stringIntP =<< v .: "secondsToGuess"
+        freeLetterAwardLength <- stringIntP =<< v .: "freeLetterAwardLength"
         pure SettingsMsgContent{..}
 
 newtype LeaveMsgContent = LeaveMsgContent

@@ -90,7 +90,21 @@ handleWsMsg me chan m = do
                 $ updateGameState
                     (msg ^. #stateKey)
                     ( \case
-                        InLobby settings -> (InLobby $ settings & #secondsToGuess .~ msg ^. #contents % #secondsToGuess, mempty)
+                        InLobby settings ->
+                            ( InLobby
+                                $ settings
+                                & ( #secondsToGuess
+                                        .~ msg
+                                        ^. #contents
+                                        % #secondsToGuess
+                                  )
+                                & ( #freeLetterAwardLength
+                                        .~ msg
+                                        ^. #contents
+                                        % #freeLetterAwardLength
+                                  )
+                            , mempty
+                            )
                         y -> (y, mempty)
                     )
         JoinMsg msg ->
