@@ -13,6 +13,7 @@ import Lucid hiding (for_)
 import qualified Lucid
 import Lucid.Base (makeAttribute)
 import Lucid.Htmx
+import Optics.Operators.Unsafe ((^?!))
 import qualified RIO.ByteString.Lazy as BSL
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
@@ -37,7 +38,9 @@ sharedHead mHotreload = head_ $ do
     meta_ [charset_ "UTF-8"]
     meta_ [name_ "viewport_", content_ "width=device-width, initial-scale=1.0"]
     link_ [rel_ "icon", href_ "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💣</text></svg>"]
-    link_ [href_ "/static/css/output.css", rel_ "stylesheet"]
+    link_ [href_ "https://fonts.googleapis.com/css?family=Press+Start+2P", rel_ "stylesheet"]
+    link_ [href_ "https://unpkg.com/nes.css@2.3.0/css/nes.min.css", rel_ "stylesheet"]
+    link_ [href_ "/static/css/base.css", rel_ "stylesheet"]
     script_
         [ src_ "https://unpkg.com/htmx.org@1.9.10"
         , integrity_ "sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
@@ -67,60 +70,63 @@ gameStateUI me stateKey game events =
         $ do
             case game of
                 InLobby settings -> do
-                    h1_ [class_ "text-4xl"] "Survival"
-                    a_ [class_ "text-sm text-blue-600 underline", href_ "/"] "Classic"
-                    hr_ [class_ "my-3 h-0.5 border-t-0 bg-neutral-100 opacity-100"]
-                    h2_ [class_ "text-2xl"] "Settings"
-                    form_
-                        [ makeAttribute "ws-send" ""
-                        , hxVals_ [st|{"tag":"Settings"}|]
-                        , hxTrigger_ "change"
-                        ]
-                        $ do
-                            label_ [Lucid.for_ "secondsToGuess"] "Seconds per guess"
-                            input_
-                                [ id_ "secondsToGuess"
-                                , name_ "secondsToGuess"
-                                , class_ "border-2 caret-blue-900"
-                                , autocomplete_ "off"
-                                , type_ "number"
-                                , min_ "1"
-                                , value_ $ tshow $ settings ^. #secondsToGuess
-                                ]
-                            br_ []
-                            label_ [Lucid.for_ "secondsToGuess"] "Free Letter Award Length"
-                            input_
-                                [ id_ "freeLetterAwardLength"
-                                , name_ "freeLetterAwardLength"
-                                , class_ "border-2 caret-blue-900"
-                                , autocomplete_ "off"
-                                , type_ "number"
-                                , min_ "1"
-                                , value_ $ tshow $ settings ^. #freeLetterAwardLength
-                                ]
-                    h2_ [class_ "text-2xl"] "Players"
-                    ul_ $ for_ (HashMap.toList $ settings ^. #players) $ \(pId, mName) -> li_ $ do
-                        button_
-                            [ type_ "button"
-                            , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
-                            , makeAttribute "ws-send" ""
-                            , hxVals_ [st|{"tag":"Leave", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
+                    h1_ [] "Survival"
+                    a_ [href_ "/"] "Classic"
+                    hr_ []
+                    div_ [class_ "nes-container with-title is-centered is-dark"] $ do
+                        p_ [class_ "title"] "Settings"
+                        form_
+                            [ makeAttribute "ws-send" ""
+                            , hxVals_ [st|{"tag":"Settings"}|]
+                            , hxTrigger_ "change"
                             ]
-                            "x"
-                        let isMe = pId == me
-                        input_
-                            $ [ class_ $ "w-1/3 border-2 caret-blue-900" <> (if isMe then "" else " bg-slate-300")
-                              , name_ "name"
-                              , value_ $ fromMaybe (T.pack $ show $ getPlayerId pId) mName
-                              , makeAttribute "ws-send" ""
-                              , hxVals_ [st|{"tag":"Name", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
-                              , autocomplete_ "off"
-                              ]
-                            <> [disabled_ "" | not isMe]
+                            $ do
+                                label_ [Lucid.for_ "secondsToGuess"] "Seconds per guess"
+                                input_
+                                    [ id_ "secondsToGuess"
+                                    , name_ "secondsToGuess"
+                                    , autocomplete_ "off"
+                                    , type_ "number"
+                                    , min_ "1"
+                                    , value_ $ tshow $ settings ^. #secondsToGuess
+                                    , class_ "nes-input"
+                                    ]
+                                label_ [Lucid.for_ "freeLetterAwardLength"] "Free Letter Award Length"
+                                input_
+                                    [ id_ "freeLetterAwardLength"
+                                    , name_ "freeLetterAwardLength"
+                                    , autocomplete_ "off"
+                                    , type_ "number"
+                                    , min_ "1"
+                                    , value_ $ tshow $ settings ^. #freeLetterAwardLength
+                                    , class_ "nes-input"
+                                    ]
+                    br_ []
+                    div_ [class_ "nes-container with-title is-centered is-dark"] $ do
+                        p_ [class_ "title"] "Players"
+                        for_ (HashMap.toList $ settings ^. #players) $ \(pId, mName) -> p_ $ div_ [style_ "display:flex"] $ do
+                            let isMe = pId == me
+                            button_
+                                [ type_ "button"
+                                , class_ "nes-btn is-error"
+                                , makeAttribute "ws-send" ""
+                                , hxVals_ [st|{"tag":"Leave", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
+                                ]
+                                "✖"
+                            input_
+                                $ [ name_ "name"
+                                  , value_ $ fromMaybe (T.pack $ show $ getPlayerId pId) mName
+                                  , makeAttribute "ws-send" ""
+                                  , hxVals_ [st|{"tag":"Name", "playerId":"#{UUID.toText $ getPlayerId pId}"}|]
+                                  , autocomplete_ "off"
+                                  , class_ "nes-input"
+                                  ]
+                                <> [disabled_ "" | not isMe]
+                    br_ []
                     unless (me `HashMap.member` (settings ^. #players))
                         $ button_
                             [ type_ "button"
-                            , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
+                            , class_ "nes-btn is-primary"
                             , makeAttribute "ws-send" ""
                             , hxVals_ [st|{"tag":"Join"}|]
                             ]
@@ -128,7 +134,7 @@ gameStateUI me stateKey game events =
                     unless (null $ settings ^. #players)
                         $ button_
                             [ type_ "button"
-                            , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
+                            , class_ "nes-btn is-success"
                             , makeAttribute "ws-send" ""
                             , hxVals_ [st|{"tag":"Start"}|]
                             ]
@@ -136,27 +142,35 @@ gameStateUI me stateKey game events =
                 InGame gs -> do
                     button_
                         [ type_ "button"
-                        , class_ "py-2 px-3 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:pointer-events-none dark:focus:outline-none dark:focus:ring-1 dark:focus:ring-gray-600"
+                        , class_ "nes-btn is-error"
                         , tabindex_ "-1"
                         , makeAttribute "ws-send" ""
                         , hxVals_ [st|{"tag":"StartOver"}|]
                         ]
                         "Start A New Game"
-                    unless (isGameOver gs)
-                        $ div_
-                            [ id_ "given-letters"
-                            , class_ "text-2xl font-mono"
-                            ]
-                        $ toHtml (gs ^. #givenLetters)
-                    ul_
+                    hr_ []
+                    unless (isGameOver gs) $ do
+                        div_ [class_ "nes-balloon from-left"]
+                            $ div_
+                                [ id_ "given-letters"
+                                , style_ "font-size:5em"
+                                ]
+                            $ toHtml (gs ^. #givenLetters)
+                    div_
                         [ id_ "player-states"
-                        , class_ "space-y-3"
+                        , style_ "display:flex;flex-flow:row wrap;"
                         ]
-                        $ for_ (playerFirst me $ gs ^. #players)
-                        $ \ps -> playerStateUI me gs events ps $ maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord
+                        $ do
+                            let (mine, pss) = playerFirst me $ gs ^. #players
+                            div_ [style_ "width:100%"] $ playerStateUI me gs events mine $ maybe "" getCaseInsensitiveText $ mine ^. #lastUsedWord
+                            for_ pss
+                                $ \ps -> p_ $ playerStateUI me gs events ps $ maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord
 
 classNames :: [Text] -> Attribute
 classNames = class_ . T.intercalate " "
+
+styles :: [Text] -> Attribute
+styles = style_ . T.intercalate ";"
 
 playerStateUI ::
     PlayerId ->
@@ -166,13 +180,14 @@ playerStateUI ::
     Text ->
     Html ()
 playerStateUI me gs events ps v = do
-    li_
+    div_
         [ id_ $ "player-state-" <> UUID.toText (getPlayerId $ ps ^. #id)
-        , classNames ["p-2 rounded-lg border-2", bg, border]
+        , class_ "nes-container with-title is-centered is-dark"
+        , styles [bg, "margin-bottom:20px", "margin-right:2px;"]
         , makeAttribute "data-game-state-events" (decodeUtf8Lenient $ BSL.toStrict $ Aeson.encode events)
         ]
         $ do
-            h1_ $ maybe (toHtml $ T.pack $ show $ getPlayerId $ ps ^. #id) toHtml $ ps ^. #name
+            p_ [class_ "title"] $ maybe (toHtml $ T.pack $ show $ getPlayerId $ ps ^. #id) toHtml $ ps ^. #name
             if isGameOver gs
                 then
                     if isPlayerAlive ps
@@ -180,7 +195,9 @@ playerStateUI me gs events ps v = do
                         else h1_ [class_ "text-center text-2xl"] "☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️"
                 else do
                     letterUI ps
-                    div_ [id_ $ "player-state-lives-" <> UUID.toText (getPlayerId me)] $ replicateM_ (ps ^. #lives) $ toHtml ("❤️" :: String)
+                    section_ [id_ $ "player-state-lives-" <> UUID.toText (getPlayerId me)]
+                        $ replicateM_ (ps ^. #lives)
+                        $ term "i" [class_ "nes-icon is-medium heart"] ""
                     form_
                         [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
                         , makeAttribute "ws-send" ""
@@ -188,74 +205,61 @@ playerStateUI me gs events ps v = do
                         ]
                         $ do
                             guessInput
+                                (gs ^. #settings)
                                 v
                                 (ps ^. #id == me && isPlayerActive gs (ps ^. #id))
                                 (ps ^. #id)
   where
-    border
-        | T.null bg && ps ^. #id == me = "border-blue-500"
-        | otherwise = ""
+    bg :: Text
     bg
-        | isGameOver gs = if isPlayerAlive ps then "bg-green-600" else "bg-red-600"
-        | isPlayerAlive ps = if isJust $ ps ^. #lastUsedWord then "bg-green-100" else ""
-        | otherwise = "bg-red-100"
+        | isGameOver gs = if isPlayerAlive ps then "background-color:darkgoldenrod" else "background-color:darkred"
+        | isPlayerAlive ps = if isJust $ ps ^. #lastUsedWord then "background-color:darkolivegreen" else ""
+        | otherwise = "background-color:darkred"
 
 playerInputId :: PlayerId -> Text
 playerInputId playerId = "input-" <> UUID.toText (getPlayerId playerId)
 
-guessInput :: Text -> Bool -> PlayerId -> Html ()
-guessInput v enabled playerId = div_
+guessInput :: Settings -> Text -> Bool -> PlayerId -> Html ()
+guessInput settings v enabled playerId = div_
     [ id_ $ "guessInput-" <> UUID.toText (getPlayerId playerId)
     , hxSwapOob_ "morph"
     ]
     $ do
         let
-            percent = min 100 $ 100 * T.length v `div` 11
-            bgColor = if T.length v > 10 then "bg-yellow-500" else "bg-blue-600"
+            freeLetterAwardLength = settings ^. #freeLetterAwardLength
+            percent = min 100 $ 100 * T.length v `div` freeLetterAwardLength
             updateLetterCount =
                 [st|on keyup from ##{playerInputId playerId}
                 put target.value.length into me
-                if target.value.length > 0 
-                    then set @style to `width: ${Math.min(100,100 * (target.value.length / 11))}%`
-                    else set @style to 'display:none' 
-                end
-                if target.value.length is greater than 10
-                    then add .bg-yellow-500 
-                    else remove .bg-yellow-500 
+                set @value to `${Math.min(100,Math.round(100 * (target.value.length / #{freeLetterAwardLength})))}`
+                if target.value.length is greater than (#{freeLetterAwardLength} - 1)
+                    then add .is-warning remove .is-primary
+                    else add .is-primary remove .is-warning
                 end
                 |]
-        div_ [class_ "w-full bg-gray-200 rounded-full h-4 mb-1"]
-            $ div_
-                [ class_ $ "h-4 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full " <> bgColor
-                , makeAttribute "_" updateLetterCount
-                , style_ $ if percent > 0 then [st|width:#{percent}%|] else "display:none"
-                ]
+        progress_
+            [ classNames ["nes-progress", if T.length v > settings ^. #freeLetterAwardLength then "is-warning" else "is-primary"]
+            , max_ "100"
+            , value_
+                $ textDisplay percent
+            , makeAttribute "_" updateLetterCount
+            , style_ "height:25px"
+            ]
             $ toHtml
             $ show
             $ T.length v
         let
-            glow =
-                [ [st|on keyup
-                if target.value.length is greater than 10
-                    then add .glow 
-                    else remove .glow 
-                end|]
-                ]
             wrongGuessHandler = [[st|on WrongGuess from elsewhere add .shake wait for animationend then remove .shake end|] | enabled]
+        hr_ []
         input_
             ( [ id_ $ playerInputId playerId
               , name_ "guess"
-              , class_
-                    $ "border-2 caret-blue-900"
-                    <> ( if enabled
-                            then ""
-                            else " bg-slate-300"
-                       )
-                    <> (if T.length v > 10 then " glow" else "")
+              , class_ "nes-input"
+              , style_ "font-size: 2em"
               , value_ v
               , autocomplete_ "off"
               , hxVals_ [st|{"tag":"Typing"}|]
-              , makeAttribute "_" $ T.unlines $ glow <> wrongGuessHandler
+              , makeAttribute "_" $ T.unlines wrongGuessHandler
               ]
                 <> [disabled_ "" | not enabled]
                 <> [autofocus_ | enabled]
@@ -264,17 +268,17 @@ guessInput v enabled playerId = div_
             )
 
 letterUI :: PlayerState -> Html ()
-letterUI ps = for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')] $ \l -> do
+letterUI ps = h2_ $ for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')] $ \l -> do
     let
         isFree = l `HashSet.member` (ps ^. #freeLetters)
-        weight = if l `HashSet.member` (ps ^. totalLettersL) then " font-extrabold" else " font-extralight"
-        color = if isFree then " text-rose-600" else ""
+        weight = if l `HashSet.member` (ps ^. totalLettersL) then "is-primary" else "is-disabled"
+        color = if isFree then "is-warning" else ""
         playerID = ps ^. #id
     span_
-        ( [class_ $ "tracking-widest" <> weight <> color]
+        ( [classNames ["nes-text", weight, color]]
             <> [makeAttribute "_" [st|on FreeLetterAward[playerID == '#{playerID}' and char == '#{l}'] from elsewhere add .grow wait for animationend then remove .grow|]]
         )
         $ toHtml l
 
-playerFirst :: PlayerId -> HashMap PlayerId PlayerState -> [PlayerState]
-playerFirst pId players = catMaybes $ players ^? ix pId : (Just <$> HashMap.elems (HashMap.delete pId players))
+playerFirst :: PlayerId -> HashMap PlayerId PlayerState -> (PlayerState, [PlayerState])
+playerFirst pId players = (players ^?! ix pId, HashMap.elems (HashMap.delete pId players))

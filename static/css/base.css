@@ -1,0 +1,52 @@
+@keyframes shake {
+    0% {
+      margin-left: 0rem;
+    }
+    33% {
+      margin-left: 0.5rem;
+    }
+    66% {
+      margin-left: -0.5rem;
+    }
+    100% {
+      margin-left: 0rem;
+    }
+  }
+  
+  .shake {
+    animation: shake 0.2s linear 0s 2;
+  }
+
+@keyframes grow {
+  0% {
+    font-size: 100%;
+  }
+  12.5% {
+    font-size:  90%;
+  }
+  25% {
+    font-size:  80%;
+  }
+  37.5% {
+    font-size:  70%;
+  }
+  50% {
+    font-size:  60%;
+  }
+  62.5% {
+    font-size:  50%;
+  }
+  75% {
+    font-size:  60%;
+  }
+  87.5% {
+    font-size:  80%;
+  }
+  100% {
+    font-size:  90%;
+  }
+}
+
+ .grow {
+    animation: grow .66s linear 0s 2;
+  }

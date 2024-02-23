@@ -52,12 +52,12 @@ home api mHotreload me = do
     appGameState <- liftIO $ readTVarIO $ a ^. #survival % #wsGameState
     pure $ doctypehtml_ $ html_ $ do
         head_ $ sharedHead mHotreload
-        body_
+        body_ [style_ "background:lightslategrey;"]
             $ main_
                 [ id_ "ws"
                 , hxExt_ "ws,game-state-ws,morph"
                 , makeAttribute "ws-connect" $ "/" <> toUrlPiece (safeLink api (Proxy @("survival" :> "ws" :> WebSocket)))
-                , class_ "container mx-auto px-4 py-4"
+                , style_ "margin-left:10px; margin-right:10px;"
                 ]
             $ gameStateUI me (appGameState ^. #stateKey) (appGameState ^. #game) Nothing
 
@@ -223,6 +223,9 @@ ws me c = do
                 let
                     mGameState = appGameState ^? #game % _InGame
                     psFor pId = appGameState ^? #game % _InGame % #players % ix pId
+                    settings = case appGameState ^. #game of
+                        InLobby s -> s
+                        InGame g -> g ^. #settings
                 chanMsg <- readTChan myChan
                 pure $ case chanMsg of
                     AppGameStateChanged -> do
@@ -245,6 +248,6 @@ ws me c = do
                     PlayerTyping stateKey typer guess -> do
                         when (stateKey == (appGameState ^. #stateKey) && typer /= me)
                             $ sendHtmlMsg c
-                            $ guessInput guess False typer
+                            $ guessInput settings guess False typer
             sender
     runConcurrently $ asum (Concurrently <$> [pingThread 0, listener, sender])
