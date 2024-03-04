@@ -163,7 +163,10 @@ makeMove gs = (\x -> execRWS x () gs) . runMove
             #players %= nextPlayer
             currentPlayerL % #lastUsedWord .= Nothing
             timesLetersUsed <- #givenLetters % _2 <%= (+ 1)
-            givenLettersUsedTooManyTimes <- use $ #players % to ((<= timesLetersUsed) . length)
+            givenLettersUsedTooManyTimes <-
+                use
+                    $ #players
+                    % to ((<= timesLetersUsed) . length . filter isPlayerAlive . toList)
             when givenLettersUsedTooManyTimes pickNewGivenLetters
             use (to isGameOver) >>= \case
                 False -> do
