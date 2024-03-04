@@ -13,7 +13,6 @@ import Lucid hiding (for_)
 import qualified Lucid
 import Lucid.Base (makeAttribute)
 import Lucid.Htmx
-import Optics.Operators.Unsafe ((^?!))
 import qualified RIO.ByteString.Lazy as BSL
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
@@ -161,10 +160,19 @@ gameStateUI me stateKey game events =
                         , style_ "display:flex;flex-flow:row wrap;"
                         ]
                         $ do
-                            let (mine, pss) = playerFirst me $ gs ^. #players
-                            div_ [style_ "width:100%"] $ playerStateUI me gs events mine $ maybe "" getCaseInsensitiveText $ mine ^. #lastUsedWord
-                            for_ pss
-                                $ \ps -> p_ $ playerStateUI me gs events ps $ maybe "" getCaseInsensitiveText $ ps ^. #lastUsedWord
+                            let (mMine, pss) = playerFirst me $ gs ^. #players
+                            for_ mMine $ \mine ->
+                                div_ [style_ "width:100%"]
+                                    $ playerStateUI me gs events mine
+                                    $ maybe "" getCaseInsensitiveText
+                                    $ mine
+                                    ^. #lastUsedWord
+                            for_ pss $ \ps ->
+                                p_
+                                    $ playerStateUI me gs events ps
+                                    $ maybe "" getCaseInsensitiveText
+                                    $ ps
+                                    ^. #lastUsedWord
 
 classNames :: [Text] -> Attribute
 classNames = class_ . T.intercalate " "
@@ -280,5 +288,5 @@ letterUI ps = h2_ $ for_ [(CaseInsensitiveChar 'A') .. (CaseInsensitiveChar 'Z')
         )
         $ toHtml l
 
-playerFirst :: PlayerId -> HashMap PlayerId PlayerState -> (PlayerState, [PlayerState])
-playerFirst pId players = (players ^?! ix pId, HashMap.elems (HashMap.delete pId players))
+playerFirst :: PlayerId -> HashMap PlayerId PlayerState -> (Maybe PlayerState, [PlayerState])
+playerFirst pId players = (players ^? ix pId, HashMap.elems (HashMap.delete pId players))
