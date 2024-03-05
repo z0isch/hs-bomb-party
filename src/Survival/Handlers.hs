@@ -13,9 +13,7 @@ import CustomPrelude
 import App (App (..), AppM, SurvivalApp (..))
 import CaseInsensitive (CaseInsensitiveText (..))
 import qualified Data.Aeson as Aeson
-import Lucid hiding (for_)
-import Lucid.Base (makeAttribute)
-import Lucid.Htmx
+import Lucid (Html, renderText)
 import qualified Network.WebSockets as WS
 import OrphanInstances ()
 import qualified RIO.HashMap as HashMap
@@ -36,7 +34,7 @@ import Survival.Game (
  )
 import Survival.GameStateEvent (GameStateEvent (..), GameStateEvents (..), eventsForPlayer, isNextRound, _CorrectGuess, _WrongGuess)
 import Survival.Timer (restartTimer, startTimer, stopTimer)
-import Survival.Views (gameStateUI, guessInput, playerStateUI, sharedHead)
+import Survival.Views (gameStateUI, guessInput, homeUI, playerStateUI)
 import Survival.WsMsg
 import WithPlayerApi (PlayerId (..))
 
@@ -50,16 +48,8 @@ home ::
 home api mHotreload me = do
     a <- ask
     appGameState <- liftIO $ readTVarIO $ a ^. #survival % #wsGameState
-    pure $ doctypehtml_ $ html_ $ do
-        head_ $ sharedHead mHotreload
-        body_ [style_ "background:lightslategrey;"]
-            $ main_
-                [ id_ "ws"
-                , hxExt_ "ws,game-state-ws,morph"
-                , makeAttribute "ws-connect" $ "/" <> toUrlPiece (safeLink api (Proxy @("survival" :> "ws" :> WebSocket)))
-                , style_ "margin-left:10px; margin-right:10px;"
-                ]
-            $ gameStateUI me (appGameState ^. #stateKey) (appGameState ^. #game) Nothing
+    let wsUrl = toUrlPiece (safeLink api (Proxy @("survival" :> "ws" :> WebSocket)))
+    pure $ homeUI mHotreload wsUrl me appGameState
 
 updateGameState :: StateKey -> (AppGame -> (AppGame, GameStateEvents)) -> AppM (AppGame, GameStateEvents)
 updateGameState stateKey f = do
