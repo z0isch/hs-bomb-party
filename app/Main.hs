@@ -18,11 +18,11 @@ import System.Random (newStdGen)
 main :: IO ()
 main = do
     wordsFile <- fromMaybe "words.txt" <$> lookupEnv "WORDS_FILE"
-    wordsSet <- HashSet.fromList . fmap CaseInsensitiveText . T.lines <$> readFileUtf8 wordsFile
+    wordsSet <- T.lines <$> readFileUtf8 wordsFile
 
     givenLettersFile <- fromMaybe "histogram.csv" <$> lookupEnv "GIVEN_LETTERS_FILE"
     -- Have at least 200 words per given letter set
-    givenLettersSet <- take 1490 . fmap (CaseInsensitiveText . T.takeWhile (/= ',')) . T.lines <$> readFileUtf8 givenLettersFile
+    givenLettersSet <- take 1490 . fmap (T.takeWhile (/= ',')) . T.lines <$> readFileUtf8 givenLettersFile
 
     staticDir <- fromMaybe "static" <$> lookupEnv "STATIC_DIR"
 
@@ -36,8 +36,7 @@ main = do
                     Classic.AppGameState.InLobby
                         $ Classic.Game.initialSettings
                             stdGen
-                            wordsSet
-                            givenLettersSet
+                            (Classic.Game.mkValidWords wordsSet givenLettersSet)
                 , events = mempty
                 , ..
                 }
@@ -56,8 +55,8 @@ main = do
                     Survival.AppGameState.InLobby
                         $ Survival.Game.initialSettings
                             stdGen
-                            wordsSet
-                            givenLettersSet
+                            (HashSet.fromList $ CaseInsensitiveText <$> wordsSet)
+                            (fmap CaseInsensitiveText givenLettersSet)
                 , events = mempty
                 , ..
                 }

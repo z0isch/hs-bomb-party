@@ -15,7 +15,7 @@ import Web.Internal.HttpApiData (FromHttpApiData (..))
 
 newtype CaseInsensitiveText = CaseInsensitiveText {getCaseInsensitiveText :: Text}
     deriving stock (Show, Generic)
-    deriving newtype (IsString, ToHtml, FromJSON)
+    deriving newtype (IsString, ToHtml, FromJSON, ToJSON)
 
 instance Eq CaseInsensitiveText where
     (==) = coerce ((==) `on` T.toCaseFold)

@@ -17,16 +17,18 @@ module Classic.Game (
     isPlayerAlive,
     isPlayerTurn,
     totalLettersL,
+    mkValidWords,
 ) where
 
 import CustomPrelude
 
-import CaseInsensitive (CaseInsensitiveChar (..), CaseInsensitiveText, caseInsensitiveLetters)
+import CaseInsensitive (CaseInsensitiveChar (..), CaseInsensitiveText (..), caseInsensitiveLetters)
 import qualified CaseInsensitive
 import CircularZipper (CircularZipper (..), currentL, findRight)
 import qualified CircularZipper as CZ
 import Classic.GameStateEvent (GameStateEvent, GameStateEvents (..))
 import qualified Classic.GameStateEvent as GameStateEvent
+import Control.Monad (replicateM)
 import Control.Monad.RWS (
     MonadState,
     MonadWriter (..),
@@ -36,14 +38,13 @@ import Control.Monad.RWS (
  )
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
-import qualified RIO.List as L
 import RIO.List.Partial ((!!))
+import qualified RIO.Text as T
 import System.Random (Random, StdGen, randomR)
 import WithPlayerApi (PlayerId (..))
 
 data Settings = Settings
-    { validWords :: HashSet CaseInsensitiveText
-    , givenLettersSet :: [CaseInsensitiveText]
+    { validWords :: HashMap CaseInsensitiveText (HashSet CaseInsensitiveText)
     , stdGen :: StdGen
     , players :: HashMap PlayerId (Maybe Text)
     , secondsToGuess :: Int
@@ -53,6 +54,8 @@ data Settings = Settings
 data GameState = GameState
     { players :: CircularZipper PlayerState
     , givenLetters :: (CaseInsensitiveText, Int)
+    , validWords :: HashSet CaseInsensitiveText
+    , examples :: Maybe (CaseInsensitiveText, [CaseInsensitiveText])
     , alreadyUsedWords :: HashSet CaseInsensitiveText
     , settings :: Settings
     , round :: Natural
@@ -87,15 +90,15 @@ initialPlayerState playerId name =
         , freeLetters = mempty
         }
 
-initialSettings :: StdGen -> HashSet CaseInsensitiveText -> [CaseInsensitiveText] -> Settings
-initialSettings stdGen validWords givenLettersSet = Settings{players = mempty, secondsToGuess = 7, ..}
+initialSettings :: StdGen -> HashMap CaseInsensitiveText (HashSet CaseInsensitiveText) -> Settings
+initialSettings stdGen validWords = Settings{players = mempty, secondsToGuess = 7, ..}
 
 startGame :: Settings -> Maybe (GameState, GameStateEvents)
 startGame s = case HashMap.toList (s ^. #players) of
     [] -> Nothing
     (p : ps) ->
         let
-            (givenLetters, stdGen) = randomGivenLetters (s ^. #stdGen) (s ^. #givenLettersSet)
+            (givenLetters, stdGen) = randomGivenLetters (s ^. #stdGen) (s ^. #validWords % to HashMap.keys)
             players = CZ.fromNonEmpty $ fmap (uncurry initialPlayerState) $ p :| ps
             settings = s{stdGen}
             events = GameStateEvents $ HashMap.singleton (view #id $ CZ.current players) $ pure GameStateEvent.MyTurn
@@ -105,6 +108,8 @@ startGame s = case HashMap.toList (s ^. #players) of
                     { alreadyUsedWords = mempty
                     , round = 0
                     , givenLetters = (givenLetters, 0)
+                    , validWords = HashMap.lookupDefault mempty givenLetters $ s ^. #validWords
+                    , examples = Nothing
                     , ..
                     }
                 , events
@@ -182,10 +187,21 @@ genRandom r = #settings % #stdGen %%= randomR r
 
 pickNewGivenLetters :: (MonadState GameState m) => m ()
 pickNewGivenLetters = do
+    pickExamples
     currentGivenLetters <- use $ #givenLetters % _1
-    allButCurrent <- use $ #settings % #givenLettersSet % to (L.delete currentGivenLetters)
+    allButCurrent <- use $ #settings % #validWords % to (HashMap.delete currentGivenLetters)
     i <- genRandom (0, length allButCurrent - 1)
-    #givenLetters .= (allButCurrent !! i, 0)
+    let givenLetters = HashMap.keys allButCurrent !! i
+    #givenLetters .= (givenLetters, 0)
+    #validWords .= HashMap.lookupDefault mempty givenLetters allButCurrent
+
+pickExamples :: (MonadState GameState m) => m ()
+pickExamples = do
+    currentGivenLetters <- use $ #givenLetters % _1
+    validWords <- use $ #validWords % to (filter ((>= 1) . CaseInsensitive.length) . toList)
+    unless (null validWords) $ do
+        randomIdxs <- replicateM 3 $ genRandom (0, length validWords - 1)
+        #examples .= Just (currentGivenLetters, (validWords !!) <$> randomIdxs)
 
 awardFreeLetter ::
     (MonadState GameState m, MonadWriter GameStateEvents m) =>
@@ -222,7 +238,12 @@ isValidGuess :: GameState -> CaseInsensitiveText -> Bool
 isValidGuess gs g =
     ((gs ^. #givenLetters % _1) `CaseInsensitive.isInfixOf` g)
         && not (g `HashSet.member` (gs ^. #alreadyUsedWords))
-        && (g `HashSet.member` (gs ^. #settings % #validWords))
+        && (g `HashSet.member` (gs ^. #validWords))
 
 isPlayerTurn :: CircularZipper PlayerState -> PlayerState -> Bool
 isPlayerTurn z ps = CZ.current z ^. #id == ps ^. #id
+
+mkValidWords :: [Text] -> [Text] -> HashMap CaseInsensitiveText (HashSet CaseInsensitiveText)
+mkValidWords ws givenLetters =
+    HashMap.fromListWith (<>)
+        $ fmap (\givenLetter -> (CaseInsensitiveText givenLetter, HashSet.fromList (CaseInsensitiveText <$> filter (\w -> givenLetter `T.isInfixOf` w) ws))) givenLetters

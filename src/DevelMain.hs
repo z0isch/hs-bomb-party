@@ -15,6 +15,7 @@ import Network.Wai.Handler.Warp (run)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.WebSockets (ControlMessage (..), Message (..), acceptRequest, defaultConnectionOptions, receive, sendTextData, withPingThread)
 import RIO.File (withBinaryFileDurable)
+import qualified RIO.Text as T
 import Rapid (createRef, rapid, restart, start)
 import Servant.Server
 import Server (app)
@@ -24,8 +25,13 @@ import System.Random (mkStdGen)
 import Text.Shakespeare.Text (st)
 
 update :: IO ()
-update =
+update = do
     rapid 0 $ \r -> do
+        -- validWords <- createRef r "validWords" $ do
+        --     Classic.Game.mkValidWords
+        --         <$> (T.lines <$> readFileUtf8 "words.txt")
+        --         <*> (take 1490 . fmap (T.takeWhile (/= ',')) . T.lines <$> readFileUtf8 "histogram.csv")
+
         reloadChan <- createRef @Text r "reloadChan" newChan
 
         wsGameState <- createRef @Text r "classic.wsGameState" $ do
@@ -35,8 +41,7 @@ update =
                         Classic.AppGameState.InLobby
                             $ Classic.Game.initialSettings
                                 (mkStdGen 0)
-                                (HashSet.fromList ["the", "quick", "brown", "fox", "friday"])
-                                ["fri", "day", "the", "quick", "brown", "fox"]
+                                (Classic.Game.mkValidWords ["the", "thely", "quick", "quickly", "brown", "brownly", "fox", "foxly", "friday", "fridayly"] ["fri", "day", "the", "quick", "brown", "fox"])
                     , stateKey = 0
                     , events = mempty
                     , ..
