@@ -130,15 +130,14 @@ gameStateUI me stateKey game events =
                         ]
                         "Start A New Game"
                     unless (isGameOver gs)
-                        $ do
-                            div_
-                                [ id_ "given-letters"
-                                , class_ "text-2xl font-mono font-bold"
-                                ]
-                                $ toHtml (gs ^. #givenLetters % _1)
-                            for_ (gs ^. #examples) $ \(givenLetters, examples) ->
-                                div_ [class_ "text-lg font-thin font-sans"]
-                                    $ toHtml [st|(Previous: #{getCaseInsensitiveText givenLetters} - #{T.intercalate ", " $ fmap getCaseInsensitiveText examples})|]
+                        $ div_
+                            [ id_ "given-letters"
+                            , class_ "text-2xl font-mono font-bold"
+                            ]
+                        $ toHtml (gs ^. #givenLetters % _1)
+                    for_ (gs ^. #examples) $ \(givenLetters, examples) ->
+                        div_ [class_ "text-lg font-thin font-sans"]
+                            $ toHtml [st|(Previous: #{getCaseInsensitiveText givenLetters} - #{T.intercalate ", " $ fmap getCaseInsensitiveText examples})|]
                     ul_
                         [ id_ "player-states"
                         , class_ "space-y-3"
