@@ -198,7 +198,7 @@ pickNewGivenLetters = do
 pickExamples :: (MonadState GameState m) => m ()
 pickExamples = do
     currentGivenLetters <- use $ #givenLetters % _1
-    validWords <- use $ #validWords % to (filter ((>= 11) . CaseInsensitive.length) . toList)
+    validWords <- use $ #validWords % to (filter ((>= 1) . CaseInsensitive.length) . toList)
     unless (null validWords) $ do
         randomIdxs <- replicateM 3 $ genRandom (0, length validWords - 1)
         #examples .= Just (currentGivenLetters, (validWords !!) <$> randomIdxs)

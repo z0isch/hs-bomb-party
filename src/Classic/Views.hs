@@ -136,14 +136,31 @@ gameStateUI me stateKey game events =
                             ]
                         $ toHtml (gs ^. #givenLetters % _1)
                     for_ (gs ^. #examples) $ \(givenLetters, examples) ->
-                        div_ [class_ "text-lg font-thin font-sans"]
-                            $ toHtml [st|(Previous: #{getCaseInsensitiveText givenLetters} - #{T.intercalate ", " $ fmap getCaseInsensitiveText examples})|]
+                        div_ [class_ "text-lg font-thin font-sans"] $ do
+                            toHtml [st|Previous: #{getCaseInsensitiveText givenLetters} - |]
+                            let
+                                oedLink :: CaseInsensitiveText -> Html ()
+                                oedLink (CaseInsensitiveText example) =
+                                    a_
+                                        [ class_ "text-blue-600 underline"
+                                        , href_ [st|https://www.oed.com/search/dictionary/?q=#{example}|]
+                                        , target_ "_blank"
+                                        ]
+                                        $ toHtml example
+                            htmlIntercalate ", " $ oedLink <$> examples
                     ul_
                         [ id_ "player-states"
                         , class_ "space-y-3"
                         ]
                         $ do
                             traverse_ (playerStateUI me gs) $ playerFirst me $ gs ^. #players
+
+htmlIntercalate :: Html () -> [Html ()] -> Html ()
+htmlIntercalate sep = go
+  where
+    go [] = pure ()
+    go [x] = x
+    go (x : xs) = x >> sep >> go xs
 
 playerStateUI ::
     PlayerId ->
