@@ -3,6 +3,7 @@ module CaseInsensitive (CaseInsensitiveText (..), CaseInsensitiveChar (..), case
 import CustomPrelude hiding (length)
 
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Binary (Binary)
 import qualified Data.Char as C
 import Data.Coerce (coerce)
 import Data.Hashable (Hashable (..))
@@ -16,10 +17,13 @@ import Web.Internal.HttpApiData (FromHttpApiData (..))
 newtype CaseInsensitiveText = CaseInsensitiveText {getCaseInsensitiveText :: Text}
     deriving stock (Show, Generic)
     deriving newtype (IsString, ToHtml, FromJSON, ToJSON)
+    deriving anyclass (Binary)
 
 instance Eq CaseInsensitiveText where
     (==) = coerce ((==) `on` T.toCaseFold)
 
+instance Ord CaseInsensitiveText where
+    compare = coerce (compare `on` T.toCaseFold)
 instance Hashable CaseInsensitiveText where
     hashWithSalt i = coerce (hashWithSalt i . T.toCaseFold)
 

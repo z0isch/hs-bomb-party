@@ -39,12 +39,14 @@ import Control.Monad.RWS (
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
 import RIO.List.Partial ((!!))
+import qualified RIO.Map as Map
+import qualified RIO.Set as Set
 import qualified RIO.Text as T
 import System.Random (Random, StdGen, randomR)
 import WithPlayerApi (PlayerId (..))
 
 data Settings = Settings
-    { validWords :: HashMap CaseInsensitiveText (HashSet CaseInsensitiveText)
+    { validWords :: Map CaseInsensitiveText (Set CaseInsensitiveText)
     , stdGen :: StdGen
     , players :: HashMap PlayerId (Maybe Text)
     , secondsToGuess :: Int
@@ -54,7 +56,7 @@ data Settings = Settings
 data GameState = GameState
     { players :: CircularZipper PlayerState
     , givenLetters :: (CaseInsensitiveText, Int)
-    , validWords :: HashSet CaseInsensitiveText
+    , validWords :: Set CaseInsensitiveText
     , examples :: Maybe (CaseInsensitiveText, [CaseInsensitiveText])
     , alreadyUsedWords :: HashSet CaseInsensitiveText
     , settings :: Settings
@@ -90,7 +92,7 @@ initialPlayerState playerId name =
         , freeLetters = mempty
         }
 
-initialSettings :: StdGen -> HashMap CaseInsensitiveText (HashSet CaseInsensitiveText) -> Settings
+initialSettings :: StdGen -> Map CaseInsensitiveText (Set CaseInsensitiveText) -> Settings
 initialSettings stdGen validWords = Settings{players = mempty, secondsToGuess = 7, ..}
 
 startGame :: Settings -> Maybe (GameState, GameStateEvents)
@@ -98,7 +100,7 @@ startGame s = case HashMap.toList (s ^. #players) of
     [] -> Nothing
     (p : ps) ->
         let
-            (givenLetters, stdGen) = randomGivenLetters (s ^. #stdGen) (s ^. #validWords % to HashMap.keys)
+            (givenLetters, stdGen) = randomGivenLetters (s ^. #stdGen) (s ^. #validWords % to Map.keys)
             players = CZ.fromNonEmpty $ fmap (uncurry initialPlayerState) $ p :| ps
             settings = s{stdGen}
             events = GameStateEvents $ HashMap.singleton (view #id $ CZ.current players) $ pure GameStateEvent.MyTurn
@@ -108,7 +110,7 @@ startGame s = case HashMap.toList (s ^. #players) of
                     { alreadyUsedWords = mempty
                     , round = 0
                     , givenLetters = (givenLetters, 0)
-                    , validWords = HashMap.lookupDefault mempty givenLetters $ s ^. #validWords
+                    , validWords = fromMaybe mempty $ Map.lookup givenLetters $ s ^. #validWords
                     , examples = Nothing
                     , ..
                     }
@@ -189,11 +191,11 @@ pickNewGivenLetters :: (MonadState GameState m) => m ()
 pickNewGivenLetters = do
     pickExamples
     currentGivenLetters <- use $ #givenLetters % _1
-    allButCurrent <- use $ #settings % #validWords % to (HashMap.delete currentGivenLetters)
+    allButCurrent <- use $ #settings % #validWords % to (Map.delete currentGivenLetters)
     i <- genRandom (0, length allButCurrent - 1)
-    let givenLetters = HashMap.keys allButCurrent !! i
+    let givenLetters = Map.keys allButCurrent !! i
     #givenLetters .= (givenLetters, 0)
-    #validWords .= HashMap.lookupDefault mempty givenLetters allButCurrent
+    #validWords .= fromMaybe mempty (Map.lookup givenLetters allButCurrent)
 
 pickExamples :: (MonadState GameState m) => m ()
 pickExamples = do
@@ -238,12 +240,12 @@ isValidGuess :: GameState -> CaseInsensitiveText -> Bool
 isValidGuess gs g =
     ((gs ^. #givenLetters % _1) `CaseInsensitive.isInfixOf` g)
         && not (g `HashSet.member` (gs ^. #alreadyUsedWords))
-        && (g `HashSet.member` (gs ^. #validWords))
+        && (g `Set.member` (gs ^. #validWords))
 
 isPlayerTurn :: CircularZipper PlayerState -> PlayerState -> Bool
 isPlayerTurn z ps = CZ.current z ^. #id == ps ^. #id
 
-mkValidWords :: [Text] -> [Text] -> HashMap CaseInsensitiveText (HashSet CaseInsensitiveText)
+mkValidWords :: [Text] -> [Text] -> Map CaseInsensitiveText (Set CaseInsensitiveText)
 mkValidWords ws givenLetters =
-    HashMap.fromListWith (<>)
-        $ fmap (\givenLetter -> (CaseInsensitiveText givenLetter, HashSet.fromList (CaseInsensitiveText <$> filter (\w -> givenLetter `T.isInfixOf` w) ws))) givenLetters
+    Map.fromListWith (<>)
+        $ fmap (\givenLetter -> (CaseInsensitiveText givenLetter, Set.fromList (CaseInsensitiveText <$> filter (\w -> givenLetter `T.isInfixOf` w) ws))) givenLetters
