@@ -92,6 +92,32 @@ gameStateUI me stateKey game events =
         $ case game of
             InLobby settings -> lobbyUI me settings
             InGame gs -> gameUI me events gs
+            BetweenRounds gs -> div_ [style_ "text-align:center"] $ do
+                div_
+                    [ classNames ["nes-balloon", "from-left"]
+                    , hyperscript
+                        [st|
+                            on htmx:load from window
+                                for x in [3,2,1]
+                                    put x into #countdown
+                                    wait 1s
+                                end
+                            end
+                            |]
+                    ]
+                    $ div_
+                        [ id_ "countdown"
+                        , style_ "font-size:5em"
+                        ]
+                        ""
+                h1_
+                    $ toHtml
+                    $ "Round "
+                    <> ( gs
+                            ^. #round
+                            % to (tshow . (+ 1))
+                       )
+
 lobbyUI ::
     PlayerId ->
     Settings ->

@@ -22,7 +22,7 @@ import qualified RIO.Text.Lazy as TL
 import Servant
 import Servant.API.WebSocket (WebSocket)
 import StateKey (StateKey)
-import Survival.AppGameState (AppGame (..), AppGameState (..), AppGameStateChanMsg (..), _InGame)
+import Survival.AppGameState (AppGame (..), AppGameState (..), AppGameStateChanMsg (..), _BetweenRounds, _InGame)
 import Survival.Game (
     GameState (..),
     Move (..),
@@ -33,7 +33,7 @@ import Survival.Game (
     startGame,
  )
 import Survival.GameStateEvent (GameStateEvent (..), GameStateEvents (..), eventsForPlayer, isNextRound, _CorrectGuess, _WrongGuess)
-import Survival.Timer (restartTimer, startTimer, stopTimer)
+import Survival.Timer (betweenRounds, restartTimer, startTimer, stopTimer, turnTimeUp)
 import Survival.Views (gameStateUI, guessInput, homeUI, playerStateUI)
 import Survival.WsMsg
 import WithPlayerApi (PlayerId (..))
@@ -124,9 +124,9 @@ handleWsMsg me chan m = do
                     )
         StartMsg msg -> do
             (gs, _) <- updateGameState (msg ^. #stateKey) $ \case
-                InLobby settings -> maybe (InLobby settings, mempty) (over _1 InGame) $ startGame settings
+                InLobby settings -> maybe (InLobby settings, mempty) (over _1 BetweenRounds) $ startGame settings
                 x -> (x, mempty)
-            traverseOf_ _InGame (const $ startTimer a) gs
+            traverseOf_ _BetweenRounds (const $ startTimer a betweenRounds) gs
         StartOverMsg msg -> do
             stopTimer a
             void $ updateGameState (msg ^. #stateKey) $ \case
@@ -149,7 +149,7 @@ handleWsMsg me chan m = do
                                     writeTVar (a ^. #survival % #wsGameState)
                                         $ appGameState
                                             { stateKey = (appGameState ^. #stateKey) + 1
-                                            , game = InGame gs'
+                                            , game = BetweenRounds gs'
                                             , events
                                             }
                                     (InGame gs', events) <$ writeTChan (a ^. #survival % #wsGameChan) AppGameStateChanged
@@ -177,7 +177,7 @@ handleWsMsg me chan m = do
                 when (isJust $ S.elemIndexL MyTurn =<< eventsForPlayer me events)
                     $ if isGameOver gsS
                         then stopTimer a
-                        else restartTimer a
+                        else restartTimer a betweenRounds
 
 sendHtmlMsg :: (MonadIO m) => WS.Connection -> Html () -> m ()
 sendHtmlMsg c = liftIO . WS.sendTextData @Text c . TL.toStrict . renderText
@@ -198,16 +198,17 @@ ws me c = do
             pingThread $ i + 1
         listener :: AppM ()
         listener =
-            liftIO (WS.receive c) >>= \case
-                WS.ControlMessage (WS.Close _ _) -> pure ()
-                WS.DataMessage _ _ _ (WS.Text msgString _) -> do
-                    case Aeson.eitherDecode @WsMsg msgString of
-                        Left err -> logError $ "WebSocket received bad json: " <> fromString err
-                        Right msg -> handleWsMsg me myChan msg
-                    listener
-                _ -> listener
+            forever
+                $ liftIO (WS.receive c)
+                >>= \case
+                    WS.ControlMessage (WS.Close _ _) -> pure ()
+                    WS.DataMessage _ _ _ (WS.Text msgString _) -> do
+                        case Aeson.eitherDecode @WsMsg msgString of
+                            Left err -> logError $ "WebSocket received bad json: " <> fromString err
+                            Right msg -> handleWsMsg me myChan msg
+                    _ -> pure ()
         sender :: AppM ()
-        sender = do
+        sender = forever $ do
             join $ atomically $ do
                 appGameState <- readTVar $ a ^. #survival % #wsGameState
                 let
@@ -216,10 +217,10 @@ ws me c = do
                     settings = case appGameState ^. #game of
                         InLobby s -> s
                         InGame g -> g ^. #settings
+                        BetweenRounds g -> g ^. #settings
                 chanMsg <- readTChan myChan
                 pure $ case chanMsg of
                     AppGameStateChanged -> do
-                        logDebug $ displayPretty $ appGameState ^. #game
                         sendHtmlMsg c
                             $ gameStateUI me (appGameState ^. #stateKey) (appGameState ^. #game)
                             $ eventsForPlayer me (appGameState ^. #events)
@@ -239,5 +240,4 @@ ws me c = do
                         when (stateKey == (appGameState ^. #stateKey) && typer /= me)
                             $ sendHtmlMsg c
                             $ guessInput settings guess False typer
-            sender
     runConcurrently $ asum (Concurrently <$> [pingThread 0, listener, sender])

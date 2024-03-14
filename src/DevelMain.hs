@@ -7,6 +7,7 @@ import CustomPrelude
 import App (App (..), ClassicApp (..), SurvivalApp (..))
 import qualified Classic.AppGameState
 import qualified Classic.Game
+import qualified Data.Binary as Binary
 import qualified Data.HashSet as HashSet
 import Lucid (Html, script_, src_)
 import Network.HTTP.Types (status400)
@@ -15,7 +16,8 @@ import Network.Wai.Handler.Warp (run)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.WebSockets (ControlMessage (..), Message (..), acceptRequest, defaultConnectionOptions, receive, sendTextData, withPingThread)
 import RIO.File (withBinaryFileDurable)
-import qualified RIO.Text as T
+import qualified RIO.Map as Map
+import qualified RIO.Set as Set
 import Rapid (createRef, rapid, restart, start)
 import Servant.Server
 import Server (app)
@@ -27,12 +29,9 @@ import Text.Shakespeare.Text (st)
 update :: IO ()
 update = do
     rapid 0 $ \r -> do
-        -- validWords <- createRef r "validWords" $ do
-        --     Classic.Game.mkValidWords
-        --         <$> (T.lines <$> readFileUtf8 "words.txt")
-        --         <*> (take 1490 . fmap (T.takeWhile (/= ',')) . T.lines <$> readFileUtf8 "histogram.csv")
-
         reloadChan <- createRef @Text r "reloadChan" newChan
+        -- Entire map is too big so let's restrict it to these given letters
+        lettersMap <- createRef @Text r "lettersMap" $ (`Map.restrictKeys` Set.fromList ["tha", "the", "acc"]) <$> Binary.decodeFile "letters-map"
 
         wsGameState <- createRef @Text r "classic.wsGameState" $ do
             newTVarIO
@@ -41,7 +40,7 @@ update = do
                         Classic.AppGameState.InLobby
                             $ Classic.Game.initialSettings
                                 (mkStdGen 0)
-                                (Classic.Game.mkValidWords ["the", "thely", "quick", "quickly", "brown", "brownly", "fox", "foxly", "friday", "fridayly"] ["fri", "day", "the", "quick", "brown", "fox"])
+                                lettersMap
                     , stateKey = 0
                     , events = mempty
                     , ..

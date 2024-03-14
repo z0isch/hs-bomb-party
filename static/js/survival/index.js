@@ -63,20 +63,20 @@
     });
   }
 
-  let turnTickingIntervalID;
-  htmx.on("TimeUp", () => {
-    clearInterval(turnTickingIntervalID);
-  });
-  htmx.on("MyTurn", () => {
-    clearInterval(turnTickingIntervalID);
-    turnTickingIntervalID = setInterval(() => {
-      tick.play();
-    }, 1200);
-  });
-  htmx.on("CorrectGuess", () => {
-    clearInterval(turnTickingIntervalID);
-  });
-  htmx.on("GameOver", () => {
-    clearInterval(turnTickingIntervalID);
-  });
+  // let turnTickingIntervalID;
+  // htmx.on("TimeUp", () => {
+  //   clearInterval(turnTickingIntervalID);
+  // });
+  // htmx.on("MyTurn", () => {
+  //   clearInterval(turnTickingIntervalID);
+  //   turnTickingIntervalID = setInterval(() => {
+  //     tick.play();
+  //   }, 1200);
+  // });
+  // htmx.on("CorrectGuess", () => {
+  //   clearInterval(turnTickingIntervalID);
+  // });
+  // htmx.on("GameOver", () => {
+  //   clearInterval(turnTickingIntervalID);
+  // });
 })();

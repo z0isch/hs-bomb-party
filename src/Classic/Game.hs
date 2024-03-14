@@ -193,7 +193,7 @@ pickNewGivenLetters = do
     currentGivenLetters <- use $ #givenLetters % _1
     allButCurrent <- use $ #settings % #validWords % to (Map.delete currentGivenLetters)
     i <- genRandom (0, length allButCurrent - 1)
-    let givenLetters = Map.keys allButCurrent !! i
+    let (givenLetters, _) = Map.elemAt i allButCurrent
     #givenLetters .= (givenLetters, 0)
     #validWords .= fromMaybe mempty (Map.lookup givenLetters allButCurrent)
 

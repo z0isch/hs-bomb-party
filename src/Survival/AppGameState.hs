@@ -3,7 +3,7 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Survival.AppGameState (AppGame (..), AppGameState (..), AppGameStateChanMsg (..), _InGame, _InLobby) where
+module Survival.AppGameState (AppGame (..), AppGameState (..), AppGameStateChanMsg (..), _InGame, _InLobby, _BetweenRounds) where
 
 import CustomPrelude
 
@@ -14,7 +14,10 @@ import Survival.Game (GameState, Settings)
 import Survival.GameStateEvent (GameStateEvents)
 import WithPlayerApi (PlayerId)
 
-data AppGame = InLobby Settings | InGame GameState
+data AppGame
+    = InLobby Settings
+    | InGame GameState
+    | BetweenRounds GameState
     deriving stock (Show)
 makePrisms ''AppGame
 
