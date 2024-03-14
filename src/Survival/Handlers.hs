@@ -34,7 +34,7 @@ import Survival.Game (
  )
 import Survival.GameStateEvent (GameStateEvent (..), GameStateEvents (..), eventsForPlayer, isNextRound, _CorrectGuess, _WrongGuess)
 import Survival.Timer (betweenRounds, restartTimer, startTimer, stopTimer, turnTimeUp)
-import Survival.Views (gameStateUI, guessInput, homeUI, playerStateUI)
+import Survival.Views (PlayerStateUIFor (..), gameStateUI, guessInput, homeUI, playerStateUI)
 import Survival.WsMsg
 import WithPlayerApi (PlayerId (..))
 
@@ -129,12 +129,14 @@ handleWsMsg me chan m = do
             traverseOf_ _BetweenRounds (const $ startTimer a betweenRounds) gs
         StartOverMsg msg -> do
             stopTimer a
-            void $ updateGameState (msg ^. #stateKey) $ \case
-                InGame gs ->
+            let backToLobby gs =
                     ( InLobby $ gs ^. #settings
                     , GameStateEvents
                         $ HashMap.fromList (gs ^.. #players % folded % #id % to (,pure GameOver))
                     )
+            void $ updateGameState (msg ^. #stateKey) $ \case
+                InGame gs -> backToLobby gs
+                BetweenRounds gs -> backToLobby gs
                 x -> (x, mempty)
         GuessMsg msg -> do
             (gs, events) <- atomically $ do
@@ -228,13 +230,15 @@ ws me c = do
                         (Just gameState, Just guesserState) -> do
                             when (stateKey == (appGameState ^. #stateKey))
                                 $ sendHtmlMsg c
-                                $ playerStateUI me gameState (eventsForPlayer me (appGameState ^. #events)) guesserState (getCaseInsensitiveText guess)
+                                $ playerStateUI me gameState guesserState
+                                $ PlayerStateUIInRound (eventsForPlayer me (appGameState ^. #events)) (getCaseInsensitiveText guess)
                         _ -> pure ()
                     PlayerGuessedWrong stateKey guesser -> case (mGameState, psFor guesser) of
                         (Just gameState, Just guesserState) -> do
                             when (stateKey == (appGameState ^. #stateKey))
                                 $ sendHtmlMsg c
-                                $ playerStateUI me gameState (eventsForPlayer me (appGameState ^. #events)) guesserState ""
+                                $ playerStateUI me gameState guesserState
+                                $ PlayerStateUIInRound (eventsForPlayer me (appGameState ^. #events)) ""
                         _ -> pure ()
                     PlayerTyping stateKey typer guess -> do
                         when (stateKey == (appGameState ^. #stateKey) && typer /= me)

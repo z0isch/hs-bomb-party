@@ -58,8 +58,7 @@ update = do
                         Survival.AppGameState.InLobby
                             $ Survival.Game.initialSettings
                                 (mkStdGen 0)
-                                (HashSet.fromList ["the", "thely", "quick", "quickly", "brown", "brownly", "fox", "foxly", "friday", "fridayly"])
-                                ["fri", "day", "the", "quick", "brown", "fox"]
+                                lettersMap
                     , stateKey = 0
                     , events = mempty
                     , ..

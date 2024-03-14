@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Survival.Views (homeUI, gameStateUI, playerStateUI, guessInput) where
+module Survival.Views (homeUI, gameStateUI, PlayerStateUIFor (..), playerStateUI, guessInput) where
 
 import CustomPrelude
 
@@ -92,31 +92,7 @@ gameStateUI me stateKey game events =
         $ case game of
             InLobby settings -> lobbyUI me settings
             InGame gs -> gameUI me events gs
-            BetweenRounds gs -> div_ [style_ "text-align:center"] $ do
-                div_
-                    [ classNames ["nes-balloon", "from-left"]
-                    , hyperscript
-                        [st|
-                            on htmx:load from window
-                                for x in [3,2,1]
-                                    put x into #countdown
-                                    wait 1s
-                                end
-                            end
-                            |]
-                    ]
-                    $ div_
-                        [ id_ "countdown"
-                        , style_ "font-size:5em"
-                        ]
-                        ""
-                h1_
-                    $ toHtml
-                    $ "Round "
-                    <> ( gs
-                            ^. #round
-                            % to (tshow . (+ 1))
-                       )
+            BetweenRounds gs -> betweenRoundsUI me gs
 
 lobbyUI ::
     PlayerId ->
@@ -193,6 +169,67 @@ lobbyUI me settings = do
             ]
             "Start Game"
 
+betweenRoundsUI :: PlayerId -> GameState -> Html ()
+betweenRoundsUI me gs = do
+    div_ [style_ "text-align:center"] $ do
+        div_
+            [ classNames ["nes-balloon", "from-left"]
+            , hyperscript
+                [st|
+                            on htmx:load from window
+                                for x in [5,4,3,2,1]
+                                    put x into #countdown
+                                    wait 1s
+                                end
+                            end
+                            |]
+            ]
+            $ div_
+                [ id_ "countdown"
+                , style_ "font-size:5em"
+                ]
+                ""
+        h1_
+            $ toHtml
+            $ "Round "
+            <> ( gs
+                    ^. #round
+                    % to (tshow . (+ 1))
+               )
+        for_ (gs ^. #examples) $ \(givenLetters, examples) ->
+            div_ [classNames ["nes-container", "is-dark"]] $ do
+                span_ [style_ "font-size:1.5em"] $ toHtml [st|Previous: #{getCaseInsensitiveText givenLetters} - |]
+                let
+                    oedLink :: CaseInsensitiveText -> Html ()
+                    oedLink (CaseInsensitiveText example) =
+                        a_
+                            [ href_ [st|https://www.oed.com/search/dictionary/?q=#{example}|]
+                            , target_ "_blank"
+                            , style_ "font-size:1.5em"
+                            ]
+                            $ toHtml example
+                htmlIntercalate ", " $ oedLink <$> examples
+        hr_ []
+        div_
+            [ id_ "player-states"
+            , styles ["display:flex", "flex-flow:row wrap"]
+            ]
+            $ do
+                let (mMine, pss) = playerFirst me $ gs ^. #players
+                for_ mMine $ \mine ->
+                    div_ [style_ "width:100%"]
+                        $ playerStateUI me gs mine PlayerStateUIInBetweenRounds
+                for_ pss $ \ps ->
+                    p_
+                        $ playerStateUI me gs ps PlayerStateUIInBetweenRounds
+
+htmlIntercalate :: Html () -> [Html ()] -> Html ()
+htmlIntercalate sep = go
+  where
+    go [] = pure ()
+    go [x] = x
+    go (x : xs) = x >> sep >> go xs
+
 gameUI :: PlayerId -> Maybe (Seq GameStateEvent) -> GameState -> Html ()
 gameUI me events gs = do
     button_
@@ -219,25 +256,30 @@ gameUI me events gs = do
             let (mMine, pss) = playerFirst me $ gs ^. #players
             for_ mMine $ \mine ->
                 div_ [style_ "width:100%"]
-                    $ playerStateUI me gs events mine
+                    $ playerStateUI me gs mine
+                    $ PlayerStateUIInRound events
                     $ maybe "" getCaseInsensitiveText
                     $ mine
                     ^. #lastUsedWord
             for_ pss $ \ps ->
                 p_
-                    $ playerStateUI me gs events ps
+                    $ playerStateUI me gs ps
+                    $ PlayerStateUIInRound events
                     $ maybe "" getCaseInsensitiveText
                     $ ps
                     ^. #lastUsedWord
 
+data PlayerStateUIFor
+    = PlayerStateUIInRound (Maybe (Seq GameStateEvent)) Text
+    | PlayerStateUIInBetweenRounds
+
 playerStateUI ::
     PlayerId ->
     GameState ->
-    Maybe (Seq GameStateEvent) ->
     PlayerState ->
-    Text ->
+    PlayerStateUIFor ->
     Html ()
-playerStateUI me gs events ps v = do
+playerStateUI me gs ps playerStateUIFor = do
     div_
         [ id_ $ "player-state-" <> UUID.toText (getPlayerId $ ps ^. #id)
         , classNames ["nes-container", "with-title", "is-centered", "is-dark"]
@@ -256,7 +298,7 @@ playerStateUI me gs events ps v = do
                     section_ [id_ $ "player-state-lives-" <> UUID.toText (getPlayerId me)]
                         $ replicateM_ (ps ^. #lives)
                         $ term "i" [classNames ["nes-icon", "is-medium heart"]] ""
-                    form_
+                    for_ mInputValue $ \inputValue -> form_
                         [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
                         , makeAttribute "ws-send" ""
                         , hxVals_ [st|{"tag":"Guess"}|]
@@ -264,10 +306,16 @@ playerStateUI me gs events ps v = do
                         $ do
                             guessInput
                                 (gs ^. #settings)
-                                v
+                                inputValue
                                 (ps ^. #id == me && isPlayerActive gs (ps ^. #id))
                                 (ps ^. #id)
   where
+    events = case playerStateUIFor of
+        PlayerStateUIInBetweenRounds -> Nothing
+        PlayerStateUIInRound es _ -> es
+    mInputValue = case playerStateUIFor of
+        PlayerStateUIInBetweenRounds -> Nothing
+        PlayerStateUIInRound _ v -> Just v
     bg :: Text
     bg
         | isGameOver gs = if isPlayerAlive ps then "background-color:darkgoldenrod" else "background-color:darkred"

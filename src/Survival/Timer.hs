@@ -51,7 +51,7 @@ turnTimeUp a = do
 
 betweenRounds :: (MonadUnliftIO m) => App -> m ()
 betweenRounds a = do
-    threadDelay 3000000
+    threadDelay 5000000
 
     atomically $ do
         appGameState <- readTVar $ a ^. #survival % #wsGameState

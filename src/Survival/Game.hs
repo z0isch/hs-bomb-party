@@ -23,6 +23,7 @@ import CustomPrelude
 
 import CaseInsensitive (CaseInsensitiveChar (..), CaseInsensitiveText, caseInsensitiveLetters)
 import qualified CaseInsensitive
+import Control.Monad (replicateM)
 import Control.Monad.RWS (
     MonadState,
     MonadWriter (..),
@@ -34,16 +35,16 @@ import Control.Monad.RWS (
 import Data.Monoid (All (..))
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
-import qualified RIO.List as L
 import RIO.List.Partial ((!!))
+import qualified RIO.Map as Map
+import qualified RIO.Set as Set
 import Survival.GameStateEvent (GameStateEvent, GameStateEvents (..))
 import qualified Survival.GameStateEvent as GameStateEvent
 import System.Random (Random, StdGen, randomR)
 import WithPlayerApi (PlayerId (..))
 
 data Settings = Settings
-    { validWords :: HashSet CaseInsensitiveText
-    , givenLettersSet :: [CaseInsensitiveText]
+    { validWords :: Map CaseInsensitiveText (Set CaseInsensitiveText)
     , stdGen :: StdGen
     , players :: HashMap PlayerId (Maybe Text)
     , secondsToGuess :: Int
@@ -54,7 +55,9 @@ data Settings = Settings
 data GameState = GameState
     { players :: HashMap PlayerId PlayerState
     , givenLetters :: CaseInsensitiveText
+    , validWords :: Set CaseInsensitiveText
     , alreadyUsedWords :: HashSet CaseInsensitiveText
+    , examples :: Maybe (CaseInsensitiveText, [CaseInsensitiveText])
     , settings :: Settings
     , round :: Natural
     }
@@ -88,8 +91,8 @@ initialPlayerState playerId name =
         , freeLetters = mempty
         }
 
-initialSettings :: StdGen -> HashSet CaseInsensitiveText -> [CaseInsensitiveText] -> Settings
-initialSettings stdGen validWords givenLettersSet =
+initialSettings :: StdGen -> Map CaseInsensitiveText (Set CaseInsensitiveText) -> Settings
+initialSettings stdGen validWords =
     Settings
         { players = mempty
         , secondsToGuess = 7
@@ -100,7 +103,7 @@ initialSettings stdGen validWords givenLettersSet =
 startGame :: Settings -> Maybe (GameState, GameStateEvents)
 startGame s =
     let
-        (givenLetters, stdGen) = randomGivenLetters (s ^. #stdGen) (s ^. #givenLettersSet)
+        (givenLetters, stdGen) = randomGivenLetters (s ^. #stdGen) (s ^. #validWords % to Map.keys)
         players = HashMap.mapWithKey initialPlayerState (s ^. #players)
         settings = s{stdGen}
         events = GameStateEvents $ fmap (pure . const GameStateEvent.MyTurn) players
@@ -110,6 +113,8 @@ startGame s =
                 { round = 0
                 , givenLetters = givenLetters
                 , alreadyUsedWords = mempty
+                , examples = Nothing
+                , validWords = fromMaybe mempty $ Map.lookup givenLetters $ s ^. #validWords
                 , ..
                 }
             , events
@@ -122,10 +127,22 @@ genRandom r = #settings % #stdGen %%= randomR r
 
 pickNewGivenLetters :: (MonadState GameState m) => m ()
 pickNewGivenLetters = do
+    pickExamples
     currentGivenLetters <- use #givenLetters
-    allButCurrent <- use $ #settings % #givenLettersSet % to (L.delete currentGivenLetters)
+    allButCurrent <- use $ #settings % #validWords % to (Map.delete currentGivenLetters)
     i <- genRandom (0, length allButCurrent - 1)
-    #givenLetters .= allButCurrent !! i
+    let (givenLetters, _) = Map.elemAt i allButCurrent
+    #givenLetters .= givenLetters
+    #validWords .= fromMaybe mempty (Map.lookup givenLetters allButCurrent)
+
+pickExamples :: (MonadState GameState m) => m ()
+pickExamples = do
+    currentGivenLetters <- use #givenLetters
+    freeLetterAwardLength <- use $ #settings % #freeLetterAwardLength
+    validWords <- use $ #validWords % to (filter ((>= freeLetterAwardLength) . CaseInsensitive.length) . toList)
+    unless (null validWords) $ do
+        randomIdxs <- replicateM 3 $ genRandom (0, length validWords - 1)
+        #examples .= Just (currentGivenLetters, (validWords !!) <$> randomIdxs)
 
 tellEvents :: (MonadWriter GameStateEvents m, MonadState GameState m) => Fold GameState PlayerState -> GameStateEvent -> m ()
 tellEvents l e = do
@@ -228,7 +245,7 @@ isValidGuess :: GameState -> CaseInsensitiveText -> Bool
 isValidGuess gs g =
     ((gs ^. #givenLetters) `CaseInsensitive.isInfixOf` g)
         && not (g `HashSet.member` (gs ^. #alreadyUsedWords))
-        && (g `HashSet.member` (gs ^. #settings % #validWords))
+        && (g `Set.member` (gs ^. #validWords))
 
 isPlayerActive :: GameState -> PlayerId -> Bool
 isPlayerActive gs playerId = fromMaybe False $ gs ^? #players % ix playerId % #lastUsedWord % to isNothing

@@ -5,4 +5,4 @@ Classic
 
 Survival
 
-- Time break between rounds
+- ~Time break between rounds~
