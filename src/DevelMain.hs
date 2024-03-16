@@ -7,8 +7,8 @@ import CustomPrelude
 import App (App (..), ClassicApp (..), SurvivalApp (..))
 import qualified Classic.AppGameState
 import qualified Classic.Game
+import qualified Configuration.Dotenv as Env
 import qualified Data.Binary as Binary
-import qualified Data.HashSet as HashSet
 import Lucid (Html, script_, src_)
 import Network.HTTP.Types (status400)
 import Network.Wai (responseLBS)
@@ -16,8 +16,10 @@ import Network.Wai.Handler.Warp (run)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.WebSockets (ControlMessage (..), Message (..), acceptRequest, defaultConnectionOptions, receive, sendTextData, withPingThread)
 import RIO.File (withBinaryFileDurable)
+import qualified RIO.List as L
 import qualified RIO.Map as Map
 import qualified RIO.Set as Set
+import qualified RIO.Text as T
 import Rapid (createRef, rapid, restart, start)
 import Servant.Server
 import Server (app)
@@ -29,6 +31,8 @@ import Text.Shakespeare.Text (st)
 update :: IO ()
 update = do
     rapid 0 $ \r -> do
+        env <- createRef @Text r "env" $ Env.parseFile ".env"
+
         reloadChan <- createRef @Text r "reloadChan" newChan
         -- Entire map is too big so let's restrict it to these given letters
         lettersMap <- createRef @Text r "lettersMap" $ (`Map.restrictKeys` Set.fromList ["tha", "the", "acc"]) <$> Binary.decodeFile "letters-map"
@@ -70,6 +74,8 @@ update = do
         let survival = SurvivalApp{..}
 
         start r "hotreload" $ run 8081 $ hotReloadServer reloadChan
+
+        let dbConnectionString = maybe (error "no connection string") (encodeUtf8 . T.pack) $ L.lookup "DB_CONNECTION_STRING" env
 
         restart r "webserver" $ do
             writeChan reloadChan ()

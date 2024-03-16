@@ -7,6 +7,7 @@ import qualified Classic.AppGameState
 import qualified Classic.Game
 import qualified Data.Binary as Binary
 import Network.Wai.Handler.Warp
+import qualified RIO.Text as T
 import Server (app)
 import qualified Survival.AppGameState
 import qualified Survival.Game
@@ -25,6 +26,11 @@ main = do
     lettersMap <- Binary.decodeFile . fromMaybe "letters-map" =<< lookupEnv "LETTERS_MAP_FILE"
 
     staticDir <- fromMaybe "static" <$> lookupEnv "STATIC_DIR"
+
+    dbConnectionString <-
+        lookupEnv "DB_CONNECTION_STRING" >>= \case
+            Nothing -> throwString "No connection string"
+            Just c -> pure $ encodeUtf8 $ T.pack c
 
     stdGen <- newStdGen
 

@@ -31,6 +31,7 @@ data App = App
     , survival :: SurvivalApp
     , logFunction :: LogFunc
     , staticDir :: FilePath
+    , dbConnectionString :: ByteString
     }
     deriving (Generic)
 

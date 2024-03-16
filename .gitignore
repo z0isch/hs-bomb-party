@@ -61,3 +61,5 @@ better-cache/
 
 log
 node_modules/**
+
+.env

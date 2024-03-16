@@ -29,6 +29,7 @@ dependencies:
   - conduit
   - containers
   - cookie
+  - dotenv
   - hashable
   - http-api-data
   - http-types
@@ -42,6 +43,7 @@ dependencies:
   - optics-extra
   - optics-operators
   - pretty-show
+  - postgresql-simple
   - rapid
   - random
   - rio

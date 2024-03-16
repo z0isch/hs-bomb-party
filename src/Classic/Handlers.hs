@@ -27,6 +27,7 @@ import Classic.Timer (restartTimer, startTimer, stopTimer)
 import Classic.Views (gameStateUI, guessInput, sharedHead)
 import Classic.WsMsg
 import qualified Data.Aeson as Aeson
+import Database.PostgreSQL.Simple
 import Lucid hiding (for_)
 import Lucid.Base (makeAttribute)
 import Lucid.Htmx
@@ -118,6 +119,9 @@ handleWsMsg me chan m = do
                         x -> (x, mempty)
                     )
         StartMsg msg -> do
+            dbConnectionString <- asks dbConnectionString
+            conn <- liftIO $ connectPostgreSQL dbConnectionString
+            void $ liftIO $ execute_ conn "insert into games(game_type) values ('classic')"
             gs <- updateGameState (msg ^. #stateKey) $ \case
                 InLobby settings -> maybe (InLobby settings, mempty) (over _1 InGame) $ startGame settings
                 x -> (x, mempty)
