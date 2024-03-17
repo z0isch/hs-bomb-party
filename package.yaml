@@ -39,18 +39,19 @@ dependencies:
   - network-uri
   - nonempty-zipper
   - optics-core
-  - optics-th
   - optics-extra
   - optics-operators
-  - pretty-show
+  - optics-th
   - postgresql-simple
-  - rapid
+  - pretty-show
   - random
+  - rapid
+  - resource-pool
   - rio
+  - servant-htmx
   - servant-lucid
   - servant-server
   - servant-websockets
-  - servant-htmx
   - shakespeare
   - stm
   - text

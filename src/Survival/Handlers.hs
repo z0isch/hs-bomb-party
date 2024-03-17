@@ -10,9 +10,10 @@ module Survival.Handlers (
 
 import CustomPrelude
 
-import App (App (..), AppM, SurvivalApp (..))
+import App (App (..), AppM, SurvivalApp (..), withSqlConnection)
 import CaseInsensitive (CaseInsensitiveText (..))
 import qualified Data.Aeson as Aeson
+import Database.PostgreSQL.Simple (execute_)
 import Lucid (Html, renderText)
 import qualified Network.WebSockets as WS
 import OrphanInstances ()
@@ -33,7 +34,7 @@ import Survival.Game (
     startGame,
  )
 import Survival.GameStateEvent (GameStateEvent (..), GameStateEvents (..), eventsForPlayer, isNextRound, _CorrectGuess, _WrongGuess)
-import Survival.Timer (betweenRounds, restartTimer, startTimer, stopTimer, turnTimeUp)
+import Survival.Timer (betweenRounds, restartTimer, startTimer, stopTimer)
 import Survival.Views (PlayerStateUIFor (..), gameStateUI, guessInput, homeUI, playerStateUI)
 import Survival.WsMsg
 import WithPlayerApi (PlayerId (..))
@@ -123,6 +124,7 @@ handleWsMsg me chan m = do
                         x -> (x, mempty)
                     )
         StartMsg msg -> do
+            void $ withSqlConnection $ \conn -> execute_ conn "insert into games(game_type) values ('survival')"
             (gs, _) <- updateGameState (msg ^. #stateKey) $ \case
                 InLobby settings -> maybe (InLobby settings, mempty) (over _1 BetweenRounds) $ startGame settings
                 x -> (x, mempty)

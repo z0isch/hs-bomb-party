@@ -2,12 +2,12 @@ module Main (main) where
 
 import CustomPrelude
 
-import App (App (..), ClassicApp (..), SurvivalApp (..))
+import App (App (..), ClassicApp (..), SurvivalApp (..), sqlConnectionPoolEnv)
 import qualified Classic.AppGameState
 import qualified Classic.Game
+import qualified Configuration.Dotenv as Env
 import qualified Data.Binary as Binary
 import Network.Wai.Handler.Warp
-import qualified RIO.Text as T
 import Server (app)
 import qualified Survival.AppGameState
 import qualified Survival.Game
@@ -16,6 +16,7 @@ import System.Random (newStdGen)
 
 main :: IO ()
 main = do
+    Env.loadFile Env.defaultConfig
     -- wordsFile <- fromMaybe "words.txt" <$> lookupEnv "WORDS_FILE"
     -- wordsSet <- T.lines <$> readFileUtf8 wordsFile
 
@@ -27,10 +28,7 @@ main = do
 
     staticDir <- fromMaybe "static" <$> lookupEnv "STATIC_DIR"
 
-    dbConnectionString <-
-        lookupEnv "DB_CONNECTION_STRING" >>= \case
-            Nothing -> throwString "No connection string"
-            Just c -> pure $ encodeUtf8 $ T.pack c
+    sqlConnectionPool <- sqlConnectionPoolEnv
 
     stdGen <- newStdGen
 

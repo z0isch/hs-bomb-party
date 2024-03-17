@@ -10,7 +10,7 @@ module Classic.Handlers (
 
 import CustomPrelude
 
-import App (App (..), AppM, ClassicApp (..))
+import App (App (..), AppM, ClassicApp (..), withSqlConnection)
 import qualified CircularZipper as CZ
 import Classic.AppGameState (AppGame (..), AppGameState (..), AppGameStateChanMsg (..), _InGame)
 import Classic.Game (
@@ -119,9 +119,7 @@ handleWsMsg me chan m = do
                         x -> (x, mempty)
                     )
         StartMsg msg -> do
-            dbConnectionString <- asks dbConnectionString
-            conn <- liftIO $ connectPostgreSQL dbConnectionString
-            void $ liftIO $ execute_ conn "insert into games(game_type) values ('classic')"
+            void $ withSqlConnection $ \conn -> execute_ conn "insert into games(game_type) values ('classic')"
             gs <- updateGameState (msg ^. #stateKey) $ \case
                 InLobby settings -> maybe (InLobby settings, mempty) (over _1 InGame) $ startGame settings
                 x -> (x, mempty)

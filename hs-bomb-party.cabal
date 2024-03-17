@@ -121,6 +121,7 @@ library
     , pretty-show
     , random
     , rapid
+    , resource-pool
     , rio
     , servant-htmx
     , servant-lucid
@@ -212,6 +213,7 @@ executable hs-bomb-party
     , pretty-show
     , random
     , rapid
+    , resource-pool
     , rio
     , servant-htmx
     , servant-lucid
@@ -307,6 +309,7 @@ test-suite hs-bomb-party-test
     , pretty-show
     , random
     , rapid
+    , resource-pool
     , rio
     , servant-htmx
     , servant-lucid
