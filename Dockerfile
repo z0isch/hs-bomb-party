@@ -11,7 +11,7 @@ RUN cd /opt/build && stack --no-terminal build \
 FROM ubuntu:22.04
 RUN mkdir -p /opt/hs-bomb-party
 WORKDIR /opt/hs-bomb-party
-RUN apt-get update && apt-get install -y ca-certificates libgmp10
+RUN apt-get update && apt-get install -y ca-certificates libgmp10 libpq5 libpq-dev
 COPY --from=build /opt/build/hs-bomb-party .
 
 COPY histogram words letters-map /opt/hs-bomb-party/
