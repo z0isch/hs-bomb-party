@@ -8,6 +8,7 @@ import qualified Classic.Game
 import qualified Configuration.Dotenv as Env
 import qualified Data.Binary as Binary
 import Network.Wai.Handler.Warp
+import RIO.Directory (doesFileExist)
 import Server (app)
 import qualified Survival.AppGameState
 import qualified Survival.Game
@@ -16,7 +17,7 @@ import System.Random (newStdGen)
 
 main :: IO ()
 main = do
-    Env.loadFile Env.defaultConfig
+    whenM (doesFileExist ".env") $ Env.loadFile Env.defaultConfig
     -- wordsFile <- fromMaybe "words.txt" <$> lookupEnv "WORDS_FILE"
     -- wordsSet <- T.lines <$> readFileUtf8 wordsFile
 
