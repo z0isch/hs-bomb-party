@@ -70,7 +70,7 @@ data PlayerState = PlayerState
     , lives :: Int
     , tries :: Int
     , lastUsedWord :: Maybe CaseInsensitiveText
-    , wordsUsedStack :: [CaseInsensitiveText]
+    , wordsUsedStack :: [Maybe CaseInsensitiveText]
     , freeLetters :: HashSet CaseInsensitiveChar
     }
     deriving (Show, Generic)
@@ -176,7 +176,7 @@ makeMove gs mv
                 tellPlayer playerId GameStateEvent.CorrectGuess
                 when (CaseInsensitive.length guess >= gs ^. #settings % #freeLetterAwardLength) $ awardFreeLetter playerId guess
                 void $ zoomMaybe (#players % ix playerId) $ do
-                    #wordsUsedStack %= (guess :)
+                    #wordsUsedStack %= (Just guess :)
                     #lastUsedWord .= Just guess
                     #letters %= HashSet.union (caseInsensitiveLetters guess)
                     let hasUsedAllLetters = totalLettersL % to ((== 26) . HashSet.size)
@@ -199,6 +199,7 @@ makeMove gs mv
                     playerId <- use #id
                     tell $ GameStateEvent.singletonEvent playerId GameStateEvent.TimeUp
                     #lives %= \l -> if l > 0 then l - 1 else l
+                    #wordsUsedStack %= (Nothing :)
             use (to isGameOver) >>= \case
                 False -> do
                     pickNewGivenLetters

@@ -16,6 +16,7 @@ import Lucid.Htmx
 import qualified RIO.ByteString.Lazy as BSL
 import qualified RIO.HashMap as HashMap
 import qualified RIO.HashSet as HashSet
+import qualified RIO.List as L
 import qualified RIO.Text as T
 import StateKey (StateKey)
 import Survival.AppGameState (AppGame (..), AppGameState (..))
@@ -291,36 +292,57 @@ playerStateUI me gs ps playerStateUIFor = do
             if isGameOver gs
                 then
                     if isPlayerAlive ps
-                        then h1_ [classNames ["text-center", "text-2xl"]] "✨✨✨✨✨WINNER✨✨✨✨✨"
+                        then do
+                            h1_ [classNames ["text-center", "text-2xl"]] "✨✨✨✨✨WINNER✨✨✨✨✨"
+                            for_ previousWord $ \w ->
+                                input_
+                                    [ class_ "nes-input"
+                                    , style_ "font-size: 2em"
+                                    , value_ $ getCaseInsensitiveText w
+                                    , disabled_ ""
+                                    ]
                         else h1_ [classNames ["text-center", "text-2xl"]] "☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️☠️"
                 else do
                     letterUI ps
                     section_ [id_ $ "player-state-lives-" <> UUID.toText (getPlayerId me)]
                         $ replicateM_ (ps ^. #lives)
                         $ term "i" [classNames ["nes-icon", "is-medium heart"]] ""
-                    for_ mInputValue $ \inputValue -> form_
-                        [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
-                        , makeAttribute "ws-send" ""
-                        , hxVals_ [st|{"tag":"Guess"}|]
-                        ]
-                        $ do
-                            guessInput
-                                (gs ^. #settings)
-                                inputValue
-                                (ps ^. #id == me && isPlayerActive gs (ps ^. #id))
-                                (ps ^. #id)
+                    val
   where
     events = case playerStateUIFor of
         PlayerStateUIInBetweenRounds -> Nothing
         PlayerStateUIInRound es _ -> es
-    mInputValue = case playerStateUIFor of
-        PlayerStateUIInBetweenRounds -> Nothing
-        PlayerStateUIInRound _ v -> Just v
+    val = case playerStateUIFor of
+        PlayerStateUIInBetweenRounds -> for_ previousWord $ \w ->
+            input_
+                [ class_ "nes-input"
+                , style_ "font-size: 2em"
+                , value_ $ getCaseInsensitiveText w
+                , disabled_ ""
+                ]
+        PlayerStateUIInRound _ v -> form_
+            [ id_ $ "player-state-form-" <> UUID.toText (getPlayerId me)
+            , makeAttribute "ws-send" ""
+            , hxVals_ [st|{"tag":"Guess"}|]
+            ]
+            $ do
+                guessInput
+                    (gs ^. #settings)
+                    v
+                    (ps ^. #id == me && isPlayerActive gs (ps ^. #id))
+                    (ps ^. #id)
+    previousWord = case playerStateUIFor of
+        PlayerStateUIInBetweenRounds -> join $ ps ^. #wordsUsedStack % to L.headMaybe
+        PlayerStateUIInRound _ _ -> ps ^. #lastUsedWord
     bg :: Text
-    bg
-        | isGameOver gs = if isPlayerAlive ps then "background-color:darkgoldenrod" else "background-color:darkred"
-        | isPlayerAlive ps = if isJust $ ps ^. #lastUsedWord then "background-color:darkolivegreen" else ""
-        | otherwise = "background-color:darkred"
+    bg = case playerStateUIFor of
+        PlayerStateUIInBetweenRounds
+            | gs ^. #round == 0 -> ""
+            | otherwise -> if isJust previousWord then "background-color:darkolivegreen" else "background-color:darkred"
+        PlayerStateUIInRound _ _
+            | isGameOver gs -> if isPlayerAlive ps then "background-color:darkgoldenrod" else "background-color:darkred"
+            | isPlayerAlive ps -> if isJust previousWord then "background-color:darkolivegreen" else ""
+            | otherwise -> "background-color:darkred"
 
 playerInputId :: PlayerId -> Text
 playerInputId playerId = "input-" <> UUID.toText (getPlayerId playerId)

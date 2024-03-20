@@ -6,5 +6,5 @@ Classic
 Survival
 
 - ~Time break between rounds~
-- Add last used word to Break Screen
+- ~Add last used word to Break Screen~
 - ?Sudden death mode? when everyone loses
